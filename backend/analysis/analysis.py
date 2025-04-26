@@ -5,6 +5,9 @@ from chromadb import PersistentClient
 from sentence_transformers import SentenceTransformer
 import nltk
 
+# Import utilities
+from utils.file_utils import extract_text, split_text_into_sections
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,24 +74,11 @@ class RentalAnalysis:
         logger.info("Populating sample agreement collection")
         self._populate_sample_agreement()
     
-    def _read_file_lines(self, filename):
-        """Read lines from a file, ignoring empty lines."""
-        file_path = os.path.join(self.sample_data_dir, filename)
-        if not os.path.exists(file_path):
-            logger.error(f"File not found: {file_path}")
-            return []
-        
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                lines = [line.strip() for line in file.readlines() if line.strip()]
-                return lines
-        except Exception as e:
-            logger.error(f"Error reading file {filename}: {e}")
-            return []
-    
     def _populate_minimal_requirements(self):
         """Populate the minimal requirements collection with essential clauses for rental agreements from file."""
-        requirements = self._read_file_lines("Mindestanforderungen.txt")
+        file_path = os.path.join(self.sample_data_dir, "Mindestanforderungen.txt")
+        text = extract_text(file_path)
+        requirements = split_text_into_sections(text)
         
         if not requirements:
             logger.warning("No requirements found in file. Using default set.")
@@ -114,7 +104,9 @@ class RentalAnalysis:
     
     def _populate_sample_agreement(self):
         """Populate the sample agreement collection with clauses from a sample rental agreement file."""
-        sample_clauses = self._read_file_lines("Mietvertrag_2.txt")
+        file_path = os.path.join(self.sample_data_dir, "Mietvertrag_2.txt")
+        text = extract_text(file_path)
+        sample_clauses = split_text_into_sections(text)
         
         if not sample_clauses:
             logger.warning("No clauses found in file. Using default set.")
@@ -139,12 +131,7 @@ class RentalAnalysis:
         
     def split_text_into_sections(self, text):
         """Split a text into sentences using newline character."""
-        try:
-            sentences = text.split('\n')
-            return sentences
-        except Exception as e:
-            logger.error(f"Error splitting text into sentences: {e}")
-            return []
+        return split_text_into_sections(text)
     
     def analyze_document_for_issues(self, sentences, document_metadata=None):
         """
@@ -172,7 +159,7 @@ class RentalAnalysis:
         # Process each sentence
         for sentence in sentences:
             # Skip very short sentences
-            if len(sentence) < 40:
+            if len(sentence) < 30:
                 results.append({
                             "text": sentence,
                             "category": "",
@@ -193,7 +180,7 @@ class RentalAnalysis:
 
                 
                 # Check if there's a match in the sample agreement
-                if search_results["distances"][0][0] > 0.1:  # Higher distance means less similar
+                if search_results["distances"][0][0] > 0.5:  # Higher distance means less similar
                     # This is an unusual clause that doesn't match any standard clause
                     
                     results.append({
@@ -205,10 +192,12 @@ class RentalAnalysis:
                     })
                 else: 
                     results.append({
-                            "text": sentence,
-                            "category": "",
-                            "description": ""
-                        })
+                        "text": sentence,
+                        "category": "match_found",
+                        "description": "",
+                        "distance": search_results["distances"][0][0],
+                        "closest_document": closest_document
+                    })
                 
             except Exception as e:
                 logger.error(f"Error analyzing sentence: {e}")

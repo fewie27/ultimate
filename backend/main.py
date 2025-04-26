@@ -7,14 +7,12 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
-import PyPDF2
-import docx
-import pytesseract
-from PIL import Image
 from datetime import datetime
 
 # Import the rental analysis module
 from analysis.analysis import analyzer as rental_analyzer
+# Import utility functions
+from utils.file_utils import extract_text, save_results_to_json
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -82,86 +80,6 @@ class UploadedDocument(BaseModel):
 
 class UploadedDocumentsList(BaseModel):
     documents: List[UploadedDocument]
-
-# Text extraction functions
-def extract_text_from_pdf(file_path):
-    """Extract text from a PDF file, adding one backslash-n after each paragraph."""
-    text = ""
-    try:
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            for page_num in range(len(pdf_reader.pages)):
-                page = pdf_reader.pages[page_num]
-                page_text = page.extract_text()
-
-                if page_text:
-                    lines = page_text.split('\n')
-                    paragraph = ""
-                    for line in lines:
-                        stripped_line = line.strip()
-                        if stripped_line:
-                            paragraph += stripped_line + " "
-                        else:
-                            # End of paragraph
-                            text += paragraph.strip() + "\n"
-                            paragraph = ""
-                    if paragraph:
-                        text += paragraph.strip() + "\n"  # Last paragraph if no empty line at end
-    except Exception as e:
-        logger.error(f"Error extracting text from PDF: {e}")
-        text = f"Error extracting text: {str(e)}"
-    return text
-
-
-
-def extract_text_from_docx(file_path):
-    """Extract text from a DOCX file"""
-    text = ""
-    try:
-        doc = docx.Document(file_path)
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-    except Exception as e:
-        logger.error(f"Error extracting text from DOCX: {e}")
-        text = f"Error extracting text: {str(e)}"
-    return text
-
-def extract_text_from_image(file_path):
-    """Extract text from an image using OCR"""
-    text = ""
-    try:
-        image = Image.open(file_path)
-        text = pytesseract.image_to_string(image)
-    except Exception as e:
-        logger.error(f"Error extracting text from image: {e}")
-        text = f"Error extracting text: {str(e)}"
-    return text
-
-def extract_text(file_path):
-    """Extract text from a file based on its extension"""
-    _, extension = os.path.splitext(file_path.lower())
-    
-    if extension in ['.pdf']:
-        return extract_text_from_pdf(file_path)
-    elif extension in ['.docx', '.doc']:
-        return extract_text_from_docx(file_path)
-    elif extension in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif']:
-        return extract_text_from_image(file_path)
-    else:
-        # For text files or unsupported formats, try to read as text
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                return file.read()
-        except Exception as e:
-            logger.error(f"Error reading file as text: {e}")
-            return f"Unsupported file format or error reading file: {str(e)}"
-        
-def save_results_to_json(document_id: str, analysis_response: Dict[str, Any]) -> None:
-    """Save analysis results to JSON file"""
-    filename = os.path.join(RESULTS_FOLDER, f"analysis_{document_id}.json")
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(analysis_response, f, ensure_ascii=False, indent=4)
-    logger.info(f"Analysis results saved to {filename}")
 
 def analyze_legal_text(text):
     """
@@ -233,7 +151,8 @@ async def upload_document(file: UploadFile = File(...)):
         ANALYSES[analysis_id] = analysis_response
         
         # Save to JSON file
-        save_results_to_json(analysis_id, analysis_response)
+        json_path = os.path.join(RESULTS_FOLDER, f"analysis_{analysis_id}.json")
+        save_results_to_json(json_path, analysis_response)
         
         return {"id": analysis_id, "message": "File uploaded successfully"}
     
@@ -243,11 +162,25 @@ async def upload_document(file: UploadFile = File(...)):
 
 @app.get("/api/analysis/{analysis_id}", response_model=AnalysisResponse)
 async def get_analysis(analysis_id: str):
-    """Get analysis results by ID"""
-    if analysis_id not in ANALYSES:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+    """Get analysis results by ID directly from the saved JSON file"""
+    # Construct the file path
+    file_path = os.path.join(RESULTS_FOLDER, f"analysis_{analysis_id}.json")
     
-    analysis = ANALYSES[analysis_id]
+    # Check if file exists
+    if not os.path.exists(file_path):
+        # Fallback to in-memory cache
+        if analysis_id in ANALYSES:
+            analysis = ANALYSES[analysis_id]
+        else:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+    else:
+        try:
+            # Read analysis from file
+            with open(file_path, 'r', encoding='utf-8') as f:
+                analysis = json.load(f)
+        except Exception as e:
+            logger.error(f"Error reading analysis file {file_path}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error reading analysis file: {str(e)}")
     
     return {
         "id": analysis["id"],
@@ -288,9 +221,9 @@ async def search_rental_agreement(query: str, limit: int = 3):
         )
         
         # Convert to SearchResult objects
-        sample_clauses = []
+        samples = []
         for i, doc in enumerate(sample_results["documents"][0]):
-            sample_clauses.append(
+            samples.append(
                 SearchResult(
                     text=doc,
                     similarity=1.0 - sample_results["distances"][0][i],
@@ -301,42 +234,67 @@ async def search_rental_agreement(query: str, limit: int = 3):
         return {
             "query": query,
             "minimal_requirements": requirements,
-            "sample_clauses": sample_clauses
+            "sample_clauses": samples
         }
     except Exception as e:
-        logger.error(f"Error searching vector database: {e}")
+        logger.error(f"Error searching database: {e}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 @app.get("/api/documents", response_model=UploadedDocumentsList)
 async def get_uploaded_documents():
     """Get a list of all uploaded documents"""
     try:
-        # Get the uploaded documents collection
-        uploads_collection = rental_analyzer.client.get_or_create_collection("uploaded_documents")
-        
-        # Get all documents
-        uploads = uploads_collection.get()
-        
         documents = []
-        for i, doc_id in enumerate(uploads["ids"]):
-            meta = uploads["metadatas"][i]
-            documents.append(UploadedDocument(
-                id=doc_id,
-                filename=meta.get("filename", "Unknown"),
-                upload_date=meta.get("upload_date", "")
-            ))
+        
+        # Get all files in the uploads folder
+        for filename in os.listdir(UPLOADS_FOLDER):
+            if os.path.isfile(os.path.join(UPLOADS_FOLDER, filename)):
+                # Extract the analysis ID from the filename
+                parts = filename.split('_', 1)
+                if len(parts) == 2:
+                    analysis_id = parts[0]
+                    original_filename = parts[1]
+                    
+                    # Get file creation time
+                    file_path = os.path.join(UPLOADS_FOLDER, filename)
+                    create_time = os.path.getctime(file_path)
+                    upload_date = datetime.fromtimestamp(create_time).strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    documents.append(
+                        UploadedDocument(
+                            id=analysis_id,
+                            filename=original_filename,
+                            upload_date=upload_date
+                        )
+                    )
         
         return {"documents": documents}
     except Exception as e:
-        logger.error(f"Error getting uploaded documents: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve documents")
+        logger.error(f"Error getting document list: {e}")
+        raise HTTPException(status_code=500, detail=f"Error listing documents: {str(e)}")
 
-# Event handler for application startup
 @app.on_event("startup")
 async def startup_event():
-    """Initialize vector database collections on startup"""
-    logger.info("Initializing rental agreement analyzer...")
-    # The import already initializes the analyzer and creates the collections
+    """Initialize the API"""
+    # Create required directories
+    os.makedirs(UPLOADS_FOLDER, exist_ok=True)
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    
+    # Load existing analyses from disk
+    try:
+        for filename in os.listdir(RESULTS_FOLDER):
+            if filename.startswith("analysis_") and filename.endswith(".json"):
+                file_path = os.path.join(RESULTS_FOLDER, filename)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    analysis = json.load(f)
+                    analysis_id = analysis.get("id")
+                    if analysis_id:
+                        ANALYSES[analysis_id] = analysis
+        logger.info(f"Loaded {len(ANALYSES)} existing analyses from disk")
+    except Exception as e:
+        logger.error(f"Error loading existing analyses: {e}")
+    
+    logger.info("API started successfully")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True) 
+    uvicorn.run("main:app", host="0.0.0.0", port=8000) 
