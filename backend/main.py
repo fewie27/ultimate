@@ -1,7 +1,8 @@
 import os
 import uuid
 import logging
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -10,6 +11,10 @@ import PyPDF2
 import docx
 import pytesseract
 from PIL import Image
+from datetime import datetime
+
+# Import the rental analysis module
+from analysis.analysis import analyzer as rental_analyzer
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -36,8 +41,10 @@ app.add_middleware(
 UPLOADS_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 ANALYSES = {}
 
-# Create uploads folder if it doesn't exist
+# Create folders if they don't exist
 os.makedirs(UPLOADS_FOLDER, exist_ok=True)
+RESULTS_FOLDER = os.path.join(os.path.dirname(__file__), 'analysis_results')
+os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
 # Define Pydantic models for responses
 class Category(str):
@@ -57,6 +64,24 @@ class UploadResponse(BaseModel):
 class AnalysisResponse(BaseModel):
     id: str
     results: List[AnalysisItem]
+
+class SearchResult(BaseModel):
+    text: str
+    similarity: float
+    category: str
+
+class SearchResponse(BaseModel):
+    query: str
+    minimal_requirements: List[SearchResult]
+    sample_clauses: List[SearchResult]
+
+class UploadedDocument(BaseModel):
+    id: str
+    filename: str
+    upload_date: str
+
+class UploadedDocumentsList(BaseModel):
+    documents: List[UploadedDocument]
 
 # Text extraction functions
 def extract_text_from_pdf(file_path):
@@ -114,73 +139,45 @@ def extract_text(file_path):
         except Exception as e:
             logger.error(f"Error reading file as text: {e}")
             return f"Unsupported file format or error reading file: {str(e)}"
+        
+def save_results_to_json(document_id: str, analysis_response: Dict[str, Any]) -> None:
+    """Save analysis results to JSON file"""
+    filename = os.path.join(RESULTS_FOLDER, f"analysis_{document_id}.json")
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(analysis_response, f, ensure_ascii=False, indent=4)
+    logger.info(f"Analysis results saved to {filename}")
 
 def analyze_legal_text(text):
     """
     Analyze legal text to identify issues
-    This is a placeholder for actual analysis logic
-    In a real application, this would use NLP/ML techniques
+    Uses the rental agreement analyzer for more sophisticated analysis
     """
-    results = []
-    
-    # Simple pattern matching for demonstration purposes
-    patterns = [
-        {
-            "keyword": "automatisch",
-            "category": "ungewöhnlich",
-            "description": "Automatische Verlängerungsklausel"
-        },
-        {
-            "keyword": "verlängert sich",
-            "category": "ungewöhnlich",
-            "description": "Automatische Verlängerungsklausel"
-        },
-        {
-            "keyword": "Kündigungsfrist",
-            "category": "ungewöhnlich",
-            "description": "Möglicherweise lange Kündigungsfrist"
-        },
-        {
-            "keyword": "Monate vor",
-            "category": "ungewöhnlich",
-            "description": "Lange Kündigungsfrist"
-        },
-        {
-            "keyword": "Gerichtsstand",
-            "category": "nichtig",
-            "description": "Potenziell unzulässige Gerichtsstandsklausel"
-        },
-        {
-            "keyword": "ausschließlich",
-            "category": "nichtig",
-            "description": "Potenziell unzulässige Ausschlussklausel"
-        }
-    ]
-    
-    # Split text into paragraphs for analysis
-    paragraphs = text.split('\n')
-    for paragraph in paragraphs:
-        if not paragraph.strip():
-            continue
-            
-        for pattern in patterns:
-            if pattern["keyword"].lower() in paragraph.lower():
-                results.append({
-                    "text": paragraph.strip(),
-                    "category": pattern["category"],
-                    "description": pattern["description"]
-                })
-                break
-    
-    # Default response if no patterns match
-    if not results and text.strip():
-        results.append({
-            "text": "Keine spezifischen problematischen Klauseln identifiziert.",
-            "category": "fehlend",
-            "description": "Es wurden keine offensichtlich problematischen Klauseln gefunden."
-        })
-    
-    return results
+    try:
+        # Split text into sentences
+        sentences = rental_analyzer.split_text_into_sections(text)
+        
+        logger.info(f"Analyzing document with {len(sentences)} sentences")
+        
+        # Analyze using the rental agreement analyzer
+        results = rental_analyzer.analyze_document_for_issues(sentences, {"source": "api_upload"})
+        
+        # Log analysis results
+        logger.info(f"Analysis complete. Found {len(results)} issues.")
+        
+        return results
+    except Exception as e:
+        logger.error(f"Error analyzing with rental analyzer: {e}")
+        
+        # Fallback to basic analysis
+        results = []
+        if text.strip():
+            results.append({
+                "text": "Keine spezifischen problematischen Klauseln identifiziert.",
+                "category": "fehlend",
+                "description": "Es wurden keine offensichtlich problematischen Klauseln gefunden."
+            })
+        
+        return results
 
 # API endpoints
 @app.post("/api/upload", response_model=UploadResponse, status_code=201)
@@ -210,13 +207,17 @@ async def upload_document(file: UploadFile = File(...)):
         # Analyze the text
         results = analyze_legal_text(extracted_text)
         
-        # Store the analysis results
-        ANALYSES[analysis_id] = {
+        # Format and save the results
+        analysis_response = {
             "id": analysis_id,
-            "file_path": file_path,
-            "text": extracted_text,
             "results": results
         }
+        
+        # Store results for API access
+        ANALYSES[analysis_id] = analysis_response
+        
+        # Save to JSON file
+        save_results_to_json(analysis_id, analysis_response)
         
         return {"id": analysis_id, "message": "File uploaded successfully"}
     
@@ -236,6 +237,90 @@ async def get_analysis(analysis_id: str):
         "id": analysis["id"],
         "results": analysis["results"]
     }
+
+@app.get("/api/search", response_model=SearchResponse)
+async def search_rental_agreement(query: str, limit: int = 3):
+    """Search for relevant clauses and requirements using the vector database"""
+    if not query:
+        raise HTTPException(status_code=400, detail="Query parameter is required")
+    
+    try:
+        # Create query embedding
+        query_embedding = rental_analyzer.model.encode([query])[0].tolist()
+        
+        # Search in minimal requirements collection
+        req_results = rental_analyzer.minimal_requirements.query(
+            query_embeddings=[query_embedding],
+            n_results=limit
+        )
+        
+        # Convert to SearchResult objects
+        requirements = []
+        for i, doc in enumerate(req_results["documents"][0]):
+            requirements.append(
+                SearchResult(
+                    text=doc,
+                    similarity=1.0 - req_results["distances"][0][i],
+                    category=req_results["metadatas"][0][i].get("category", "general")
+                )
+            )
+        
+        # Search in sample agreement collection
+        sample_results = rental_analyzer.sample_agreement.query(
+            query_embeddings=[query_embedding],
+            n_results=limit
+        )
+        
+        # Convert to SearchResult objects
+        sample_clauses = []
+        for i, doc in enumerate(sample_results["documents"][0]):
+            sample_clauses.append(
+                SearchResult(
+                    text=doc,
+                    similarity=1.0 - sample_results["distances"][0][i],
+                    category=sample_results["metadatas"][0][i].get("category", "general")
+                )
+            )
+        
+        return {
+            "query": query,
+            "minimal_requirements": requirements,
+            "sample_clauses": sample_clauses
+        }
+    except Exception as e:
+        logger.error(f"Error searching vector database: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@app.get("/api/documents", response_model=UploadedDocumentsList)
+async def get_uploaded_documents():
+    """Get a list of all uploaded documents"""
+    try:
+        # Get the uploaded documents collection
+        uploads_collection = rental_analyzer.client.get_or_create_collection("uploaded_documents")
+        
+        # Get all documents
+        uploads = uploads_collection.get()
+        
+        documents = []
+        for i, doc_id in enumerate(uploads["ids"]):
+            meta = uploads["metadatas"][i]
+            documents.append(UploadedDocument(
+                id=doc_id,
+                filename=meta.get("filename", "Unknown"),
+                upload_date=meta.get("upload_date", "")
+            ))
+        
+        return {"documents": documents}
+    except Exception as e:
+        logger.error(f"Error getting uploaded documents: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve documents")
+
+# Event handler for application startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize vector database collections on startup"""
+    logger.info("Initializing rental agreement analyzer...")
+    # The import already initializes the analyzer and creates the collections
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True) 

@@ -7,6 +7,7 @@ services:
     volumes:
       - ./backend:/app
       - ./openapi:/openapi
+      - chroma-data:/app/chroma_data
     ports:
       - "5001:5000"
     environment:
@@ -35,4 +36,5 @@ networks:
     name: web-app-network
 
 volumes:
-  frontend-node-modules: 
+  frontend-node-modules:
+  chroma-data: 
