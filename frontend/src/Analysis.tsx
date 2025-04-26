@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-type Category = "fehlend" | "unusual" | "nichtig" | "match_found";
+type Category = "fehlend" | "unusual" | "nichtig" | "match_found" | "";
 
 interface AnalysisItem {
     text: string;
@@ -47,7 +47,7 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
     const fetchAnalysis = async (analysisId: string) => {
         try {
-            const response = await axios.get<AnalysisResponse>(`https://stage.ultimate.wiegand.cloud/api/analysis/${analysisId}`);
+            const response = await axios.get<AnalysisResponse>(`https://api.stage.ultimate.wiegand.cloud/api/analysis/${analysisId}`);
             console.log(response.data.results);
             setFullText(highlightText(response.data.results));
             setFindings(response.data.results);
@@ -73,7 +73,7 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
             case "match_found":
                 return "";
             default:
-                return "transparent";
+                return "";
         }
     };
 
@@ -81,11 +81,11 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
         let highlightedText = "";
 
         findings.forEach((finding) => {
-            if (finding.category === "match_found") {
-                highlightedText += finding.text.replace("\n","<br/>");
+            if (finding.category === "match_found" || finding.category === "") {
+                highlightedText += finding.text.replace("\n", "<br/>") + " ";
             } else {
                 const color = getColorForCategory(finding.category);
-                highlightedText += `<mark style="background-color:${color};">${finding.text}</mark>`.replace("\n","<br/>");
+                highlightedText += `<mark style="background-color:${color};">${finding.text}</mark>`.replace("\n", "<br/>") + " ";
             }
         });
 
@@ -93,7 +93,7 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
     };
 
     const filteredFindings = selectedCategory === "all"
-        ? findings
+        ? findings.filter(f => f.category !== "" && f.category !== "match_found")
         : findings.filter(f => f.category === selectedCategory);
 
     return (
@@ -107,6 +107,8 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
                 <div style={styles.container}>
                     <div style={styles.documentContainer}>
+                        <div style={styles.subheader}>Your Rental Agreement</div>
+                        <div style={styles.subtitle}>hallo_blabla.pdf</div>
                         <div
                             style={styles.document}
                             dangerouslySetInnerHTML={{ __html: fullText }}
@@ -115,14 +117,14 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
                     <div style={styles.sidebar}>
                         <div style={styles.buttonGroup}>
-                            <button onClick={() => setSelectedCategory("ungewöhnlich")} style={styles.button}>
-                                🤔 Unusual
+                            <button onClick={() => setSelectedCategory("unusual")} style={styles.button}>
+                                🤔<br />Check
                             </button>
                             <button onClick={() => setSelectedCategory("nichtig")} style={styles.button}>
-                                ❌ Invalid
+                                ❌<br />Invalid
                             </button>
                             <button onClick={() => setSelectedCategory("fehlend")} style={styles.button}>
-                                ❓ Missing
+                                ❓<br />Essentials
                             </button>
                         </div>
 
@@ -130,7 +132,7 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
                             {filteredFindings.map((finding, idx) => (
                                 <div key={idx} style={styles.findingBox}>
                                     <strong>{finding.category.toUpperCase()}</strong>
-                                    <p>{finding.description}</p>
+                                    <p>{finding.text}</p>
                                 </div>
                             ))}
                         </div>
@@ -146,34 +148,47 @@ export default Analysis;
 const styles: { [key: string]: React.CSSProperties } = {
     outerContainer: {
         width: "100%",
-        height: "100%",
-        position: "absolute",
-        top: "0",
-        display: "block",
+        height: "400px",
+        display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
     },
     main: {
         fontFamily: "Lexend, sans-serif",
         backgroundColor: "#17002E",
-    },
-    container: {
+        flex: 1,
         display: "flex",
-        minHeight: "100vh",
+        flexDirection: "column",
+        paddingTop: "20px"
     },
     title: {
         fontFamily: "Lexend Mega, sans-serif",
         fontSize: "65px",
         color: "#F25D00",
-        marginLeft: "auto",
-        marginRight: "auto",
-        display: "block",
-        width: "100%",
-        fontWeight: "500",
         textAlign: "center",
-        marginTop: "0",
-        marginBottom: "15px"
+        margin: "0",
+        padding: "20px",
+    },
+    subheader: {
+        fontFamily: "Lexend, sans-serif",
+        fontSize: "35px",
+        color: "#ffffff",
+        textAlign: "center",
+        margin: "0",
+        paddingTop: "20px",
+    },
+    subtitle: {
+        fontFamily: "Lexend, sans-serif",
+        fontSize: "15px",
+        color: "#ffffff",
+        textAlign: "center",
+        margin: "0",
+        padding: "0px",
+    },
+    container: {
+        flex: 1,
+        display: "flex",
+        overflow: "hidden",
+        paddingTop: "20px"
     },
     documentContainer: {
         flex: 3,
@@ -182,38 +197,43 @@ const styles: { [key: string]: React.CSSProperties } = {
         lineHeight: "1.8",
         margin: "20px",
         marginRight: "30px",
+        borderRadius: "25px",
+        backgroundColor: "#ffffff50",
     },
     document: {
-        borderRadius: "25px",
-        backgroundColor: "#ffffffff",
-        padding: "30px",
+        padding: "40px",
+        color: "#ffffff",
+        boxSizing: "border-box",
     },
     sidebar: {
         flex: 1,
+        overflowY: "auto",
         padding: "20px",
-        backgroundColor: "#ffffffff",
+        backgroundColor: "#ffffff50",
         borderRadius: "25px",
         display: "flex",
         flexDirection: "column",
         gap: "20px",
-        margin: "20px"
-    },
-    button: {
-        width: "45%",
-        aspectRatio: "1 / 1",
-        border: "none",
-        backgroundColor: "#F25D00",
-        color: "#ffffff",
-        borderRadius: "8px",
-        cursor: "pointer",
-        fontSize: "16px",
-        margin: "1%",
-        padding: "0",
+        margin: "20px",
     },
     buttonGroup: {
         display: "flex",
         flexWrap: "wrap",
         width: "100%",
+    },
+    button: {
+        width: "45%",
+        aspectRatio: "1 / 1",
+        border: "none",
+        backgroundColor: "#ffffff",
+        color: "#000000",
+        borderRadius: "8px",
+        cursor: "pointer",
+        lineHeight: "1.5",
+        fontSize: "20px",
+        fontWeight: "bold",
+        margin: "1%",
+        padding: "0",
     },
     findingsList: {
         marginTop: "20px",
@@ -222,7 +242,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     findingBox: {
         backgroundColor: "#fff",
-        padding: "15px",
+        padding: "12px",
         borderRadius: "8px",
         marginBottom: "10px",
         boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
@@ -244,5 +264,4 @@ const styles: { [key: string]: React.CSSProperties } = {
         justifyContent: "center",
         zIndex: 1000,
     },
-    
 };
