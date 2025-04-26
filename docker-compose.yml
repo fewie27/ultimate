@@ -20,14 +20,14 @@ services:
     container_name: web-app-frontend
     volumes:
       - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
-      - ./openapi:/openapi:ro
-    ports:
-      - "3050:80"
+      - ./openapi:/openapi
+    ports:      
+      - "3050:3000"
+    environment:
+      - OPENAPI_SPEC_PATH=/openapi/openapi.yml
+    command: sh -c "npm install && npm run dev -- --host"
     depends_on:
       - backend
-    networks:
-      - web-app-network
 
 networks:
   web-app-network:
