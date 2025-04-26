@@ -1,103 +1,58 @@
 openapi: 3.0.0
 info:
-  title: Web Application API
-  description: API for the web application
+  title: Legal Document Analysis API
+  description: API for analyzing legal documents
   version: 1.0.0
 servers:
   - url: http://localhost:5000/api
     description: Local development server
 paths:
-  /items:
-    get:
-      summary: Get all items
-      description: Retrieve a list of all items
-      operationId: getItems
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Item'
+  /upload:
     post:
-      summary: Create a new item
-      description: Add a new item to the database
-      operationId: createItem
+      summary: Upload a document for analysis
+      description: Upload a file and receive a UUID for tracking the analysis
+      operationId: uploadDocument
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: '#/components/schemas/NewItem'
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
       responses:
         '201':
-          description: Item created successfully
+          description: File uploaded successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Item'
-  /items/{itemId}:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          description: Bad request
+  /analysis/{analysisId}:
     get:
-      summary: Get item by ID
-      description: Retrieve a single item by its ID
-      operationId: getItemById
+      summary: Get analysis results
+      description: Retrieve analysis results for a document using its UUID
+      operationId: getAnalysisById
       parameters:
-        - name: itemId
+        - name: analysisId
           in: path
           required: true
           schema:
-            type: integer
+            type: string
+            format: uuid
       responses:
         '200':
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Item'
+                $ref: '#/components/schemas/AnalysisResponse'
         '404':
-          description: Item not found
-    put:
-      summary: Update an item
-      description: Update an existing item
-      operationId: updateItem
-      parameters:
-        - name: itemId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NewItem'
-      responses:
-        '200':
-          description: Item updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Item'
-        '404':
-          description: Item not found
-    delete:
-      summary: Delete an item
-      description: Delete an existing item
-      operationId: deleteItem
-      parameters:
-        - name: itemId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '204':
-          description: Item deleted successfully
-        '404':
-          description: Item not found
+          description: Analysis not found
 components:
   schemas:
     Item:
@@ -136,4 +91,46 @@ components:
           type: boolean
           example: false
       required:
-        - title 
+        - title
+    UploadResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        message:
+          type: string
+          example: "File uploaded successfully"
+      required:
+        - id
+    AnalysisItem:
+      type: object
+      properties:
+        text:
+          type: string
+          example: "Der Vertrag verlängert sich automatisch um weitere 12 Monate."
+        category:
+          type: string
+          enum: [fehlend, ungewöhnlich, nichtig]
+          example: "ungewöhnlich"
+        description:
+          type: string
+          example: "Automatische Verlängerungsklausel mit ungewöhnlich langer Dauer"
+      required:
+        - text
+        - category
+    AnalysisResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisItem'
+      required:
+        - id
+        - results 

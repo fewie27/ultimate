@@ -1,156 +1,231 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Container, Typography, Button, TextField, List, 
-  ListItem, ListItemText, ListItemSecondaryAction, 
-  IconButton, Checkbox, Paper, Box, AppBar, Toolbar 
-} from '@material-ui/core';
-import { Delete, Add } from '@material-ui/icons';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import { Container, Typography, Box, Button, TextField, Paper, List, ListItem, ListItemText, Divider, CircularProgress } from '@material-ui/core';
+import { makeStyles } from '@material-ui/core/styles';
+import axios from 'axios';
 import './App.css';
 
-// Import the API client (will be generated from OpenAPI)
-// Note: This will be available after running the generate-api script
-// import { ItemsService } from './api';
+const useStyles = makeStyles((theme) => ({
+  title: {
+    marginBottom: theme.spacing(4),
+  },
+  uploadForm: {
+    marginBottom: theme.spacing(4),
+  },
+  fileInput: {
+    marginBottom: theme.spacing(2),
+  },
+  paper: {
+    padding: theme.spacing(3),
+    marginBottom: theme.spacing(3),
+  },
+  analysisItem: {
+    padding: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+    backgroundColor: (props) => {
+      switch (props.category) {
+        case 'fehlend': return '#e3f2fd';
+        case 'ungewöhnlich': return '#fff9c4';
+        case 'nichtig': return '#ffcdd2';
+        default: return '#ffffff';
+      }
+    },
+  },
+  category: {
+    fontWeight: 'bold',
+    marginBottom: theme.spacing(1),
+  },
+  description: {
+    fontStyle: 'italic',
+    color: theme.palette.text.secondary,
+  },
+  analysisId: {
+    marginBottom: theme.spacing(2),
+  },
+}));
+
+function AnalysisItem({ item }) {
+  const classes = useStyles(item);
+  
+  return (
+    <Paper className={classes.analysisItem} elevation={1}>
+      <Typography variant="body1">{item.text}</Typography>
+      <Typography className={classes.category} variant="subtitle2">
+        Kategorie: {item.category}
+      </Typography>
+      <Typography className={classes.description} variant="body2">
+        {item.description}
+      </Typography>
+    </Paper>
+  );
+}
+
+function Home() {
+  const classes = useStyles();
+  const [file, setFile] = useState(null);
+  const [analysisId, setAnalysisId] = useState('');
+  const [lookupId, setLookupId] = useState('');
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
+  
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!file) {
+      setError('Bitte wählen Sie eine Datei aus');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await axios.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      setAnalysisId(response.data.id);
+      setLookupId(response.data.id);
+      setLoading(false);
+    } catch (err) {
+      setError('Fehler beim Hochladen: ' + (err.response?.data?.error || err.message));
+      setLoading(false);
+    }
+  };
+  
+  const handleLookup = async (e) => {
+    e.preventDefault();
+    if (!lookupId) {
+      setError('Bitte geben Sie eine Analyse-ID ein');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await axios.get(`/api/analysis/${lookupId}`);
+      setAnalysisResults(response.data);
+      setLoading(false);
+    } catch (err) {
+      setError('Fehler beim Abrufen der Analyse: ' + (err.response?.data?.error || err.message));
+      setLoading(false);
+      setAnalysisResults(null);
+    }
+  };
+  
+  return (
+    <Container maxWidth="md">
+      <Box my={4}>
+        <Typography variant="h4" component="h1" className={classes.title} gutterBottom>
+          Rechtsdokument-Analyse
+        </Typography>
+        
+        {error && (
+          <Typography color="error" gutterBottom>
+            {error}
+          </Typography>
+        )}
+        
+        <Paper className={classes.paper}>
+          <Typography variant="h6" gutterBottom>
+            Dokument hochladen
+          </Typography>
+          <form className={classes.uploadForm} onSubmit={handleUpload}>
+            <Box className={classes.fileInput}>
+              <input
+                type="file"
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.txt"
+              />
+            </Box>
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Hochladen'}
+            </Button>
+          </form>
+          
+          {analysisId && (
+            <Box mt={2}>
+              <Typography variant="subtitle1">
+                Dokument hochgeladen. Ihre Analyse-ID:
+              </Typography>
+              <Typography variant="h6" color="primary">
+                {analysisId}
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+        
+        <Paper className={classes.paper}>
+          <Typography variant="h6" gutterBottom>
+            Analyse abrufen
+          </Typography>
+          <form onSubmit={handleLookup}>
+            <TextField
+              label="Analyse-ID"
+              variant="outlined"
+              fullWidth
+              value={lookupId}
+              onChange={(e) => setLookupId(e.target.value)}
+              className={classes.fileInput}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Abrufen'}
+            </Button>
+          </form>
+        </Paper>
+        
+        {analysisResults && (
+          <Paper className={classes.paper}>
+            <Typography variant="h6" gutterBottom>
+              Analyseergebnisse
+            </Typography>
+            <Typography className={classes.analysisId} variant="subtitle1">
+              Analyse-ID: {analysisResults.id}
+            </Typography>
+            
+            {analysisResults.results.length === 0 ? (
+              <Typography>Keine Ergebnisse gefunden.</Typography>
+            ) : (
+              <Box>
+                {analysisResults.results.map((item, index) => (
+                  <AnalysisItem key={index} item={item} />
+                ))}
+              </Box>
+            )}
+          </Paper>
+        )}
+      </Box>
+    </Container>
+  );
+}
 
 function App() {
-  const [items, setItems] = useState([]);
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  // In a production app, you'd use the generated API client
-  // For now, we'll mock the API calls for demo purposes
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        // Simulating API call
-        // const data = await ItemsService.getItems();
-        setItems([
-          { id: 1, title: 'Learn Docker', completed: false },
-          { id: 2, title: 'Set up React', completed: true },
-          { id: 3, title: 'Create OpenAPI spec', completed: false }
-        ]);
-      } catch (error) {
-        console.error('Error fetching items:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchItems();
-  }, []);
-
-  const handleAddItem = async () => {
-    if (!newItemTitle.trim()) return;
-
-    try {
-      // Simulating API call
-      // const newItem = await ItemsService.createItem({ title: newItemTitle });
-      const newItem = {
-        id: items.length + 1,
-        title: newItemTitle,
-        completed: false
-      };
-
-      setItems([...items, newItem]);
-      setNewItemTitle('');
-    } catch (error) {
-      console.error('Error adding item:', error);
-    }
-  };
-
-  const handleToggleItem = async (id) => {
-    try {
-      const updatedItems = items.map(item => {
-        if (item.id === id) {
-          // Simulating API call
-          // await ItemsService.updateItem(id, { ...item, completed: !item.completed });
-          return { ...item, completed: !item.completed };
-        }
-        return item;
-      });
-
-      setItems(updatedItems);
-    } catch (error) {
-      console.error('Error updating item:', error);
-    }
-  };
-
-  const handleDeleteItem = async (id) => {
-    try {
-      // Simulating API call
-      // await ItemsService.deleteItem(id);
-      setItems(items.filter(item => item.id !== id));
-    } catch (error) {
-      console.error('Error deleting item:', error);
-    }
-  };
-
   return (
-    <div className="App">
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6">
-            Todo App
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      
-      <Container maxWidth="md">
-        <Box my={4}>
-          <Paper>
-            <Box p={3}>
-              <Typography variant="h5" component="h1" gutterBottom>
-                Todo List
-              </Typography>
-              
-              <Box display="flex" mb={3}>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  value={newItemTitle}
-                  onChange={(e) => setNewItemTitle(e.target.value)}
-                  placeholder="Add a new task"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
-                />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<Add />}
-                  onClick={handleAddItem}
-                  style={{ marginLeft: '10px' }}
-                >
-                  Add
-                </Button>
-              </Box>
-
-              {loading ? (
-                <Typography>Loading...</Typography>
-              ) : (
-                <List>
-                  {items.map((item) => (
-                    <ListItem key={item.id} dense>
-                      <Checkbox
-                        edge="start"
-                        checked={item.completed}
-                        onChange={() => handleToggleItem(item.id)}
-                      />
-                      <ListItemText
-                        primary={item.title}
-                        style={{ textDecoration: item.completed ? 'line-through' : 'none' }}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton edge="end" onClick={() => handleDeleteItem(item.id)}>
-                          <Delete />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </Box>
-          </Paper>
-        </Box>
-      </Container>
-    </div>
+    <Router>
+      <Switch>
+        <Route path="/" component={Home} />
+      </Switch>
+    </Router>
   );
 }
 
