@@ -25,3 +25,6 @@ uploads/
 # OS specific files
 .DS_Store
 Thumbs.db 
+
+analysis_results/
+chroma_data/
