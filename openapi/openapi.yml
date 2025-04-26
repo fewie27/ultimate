@@ -55,43 +55,6 @@ paths:
           description: Analysis not found
 components:
   schemas:
-    Item:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 1
-        title:
-          type: string
-          example: "Task title"
-        description:
-          type: string
-          example: "Task description"
-        completed:
-          type: boolean
-          example: false
-        createdAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - title
-        - completed
-    NewItem:
-      type: object
-      properties:
-        title:
-          type: string
-          example: "Task title"
-        description:
-          type: string
-          example: "Task description"
-        completed:
-          type: boolean
-          example: false
-      required:
-        - title
     UploadResponse:
       type: object
       properties:
