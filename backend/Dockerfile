@@ -15,14 +15,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Download NLTK punkt tokenizer
+RUN python -c "import nltk; nltk.download('punkt_tab')"
+
 # Create necessary directories
 RUN mkdir -p /app/uploads /app/chroma_data
 
 # Copy the application code
 COPY . .
-
-# Download spaCy German language model
-RUN python -m spacy download de_core_news_sm
 
 EXPOSE 5000
 

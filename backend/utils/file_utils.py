@@ -6,88 +6,60 @@ import pytesseract
 from PIL import Image
 import json
 import re
-import spacy
+import nltk
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load the German spaCy model
+# Download and set up NLTK resources
 try:
-    nlp = spacy.load("de_core_news_sm")
-    logger.info("Loaded German spaCy model for sentence detection")
+    nltk.download('punkt', quiet=True)
+    from nltk.tokenize import sent_tokenize
+    logger.info("Loaded NLTK punkt tokenizer for sentence detection")
 except Exception as e:
-    logger.error(f"Error loading spaCy model: {e}")
-    # Simple German pipeline as fallback if model can't be loaded
-    try:
-        nlp = spacy.blank("de")
-        nlp.add_pipe("sentencizer")
-        logger.info("Created basic German pipeline with sentencizer")
-    except Exception as e2:
-        logger.error(f"Error creating fallback spaCy pipeline: {e2}")
-        nlp = None
+    logger.error(f"Error loading NLTK resources: {e}")
+    sent_tokenize = None
 
 def split_text_into_sections(text):
-    """Split German text into sentences using spaCy's language model.
+    """Split German text into sentences using NLTK's sentence tokenizer.
     This properly handles German sentence boundaries and preserves punctuation."""
     if not text or not text.strip():
         return []
     
-    # Try using spaCy for sentence detection
-    if nlp is not None:
-        try:
-            # Process the text with spaCy
-            doc = nlp(text)
-            
-            # Extract sentences with their ending punctuation
-            sentences = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
-            
-            # If spaCy didn't find any sentences, fallback to paragraph splitting
-            if not sentences:
-                sentences = [p.strip() for p in text.split('\n') if p.strip()]
-                
-            return sentences
-        except Exception as e:
-            logger.error(f"Error in spaCy sentence splitting: {e}")
+    result = []
     
-    # Fallback method if spaCy isn't available or fails
-    try:
-        # Simple paragraph and punctuation-based splitting
-        paragraphs = text.split('\n')
-        sentences = []
+    # Split the text by newlines to preserve paragraph structure
+    paragraphs = text.split('\n')
+    
+    for paragraph in paragraphs:
+        if not paragraph.strip():
+            # Keep empty lines as separate entries
+            result.append("\n\n")
+            continue
         
-        for paragraph in paragraphs:
-            if not paragraph.strip():
-                continue
-                
-            # Simple split at ". " but preserve the periods
-            current_pos = 0
-            sentence_endings = list(re.finditer(r'[.!?]\s+(?=[A-ZÄÖÜ])', paragraph))
-            
-            if sentence_endings:
-                for match in sentence_endings:
-                    end_pos = match.end() - 1  # Include the punctuation but not the space
-                    sentence = paragraph[current_pos:end_pos].strip()
-                    if sentence:
-                        sentences.append(sentence)
-                    current_pos = match.end() - 1  # Start after the punctuation
-                
-                # Add the last part if there's content after the last period
-                if current_pos < len(paragraph):
-                    last_sentence = paragraph[current_pos:].strip()
-                    if last_sentence:
-                        sentences.append(last_sentence)
-            else:
-                # If no sentence boundaries found, add the whole paragraph
-                if paragraph.strip():
-                    sentences.append(paragraph.strip())
+        # If NLTK tokenizer is available, use it for sentence detection
+        if sent_tokenize is not None:
+            try:
+                # Use NLTK to split the paragraph into sentences
+                # Setting language to German for proper sentence boundary detection
+                sentences = sent_tokenize(paragraph, language='german')
+                if sentences:
+                    # Add all sentences except the last one
+                    for sentence in sentences[:-1]:
+                        if sentence.strip():
+                            result.append(sentence.strip())
                     
-        return sentences
-        
-    except Exception as e:
-        logger.error(f"Error in fallback sentence splitting: {e}")
-        # Last resort: just split by newlines
-        return [line.strip() for line in text.split('\n') if line.strip()]
+                    # For the last sentence, append a newline character
+                    if sentences[-1].strip():
+                        result.append(sentences[-1].strip() + "\n")
+            except Exception as e:
+                logger.error(f"Error in NLTK sentence splitting: {e}")
+                # If a sentence couldn't be properly split, add the whole paragraph
+                if paragraph.strip():
+                    result.append(paragraph.strip() + "\n")
+    
+    return result
 
 def extract_text_from_pdf(file_path):
     """Extract text from a PDF file, adding one backslash-n after each paragraph."""
