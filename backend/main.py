@@ -85,18 +85,34 @@ class UploadedDocumentsList(BaseModel):
 
 # Text extraction functions
 def extract_text_from_pdf(file_path):
-    """Extract text from a PDF file"""
+    """Extract text from a PDF file, adding one backslash-n after each paragraph."""
     text = ""
     try:
         with open(file_path, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
             for page_num in range(len(pdf_reader.pages)):
                 page = pdf_reader.pages[page_num]
-                text += page.extract_text() + "\n"
+                page_text = page.extract_text()
+
+                if page_text:
+                    lines = page_text.split('\n')
+                    paragraph = ""
+                    for line in lines:
+                        stripped_line = line.strip()
+                        if stripped_line:
+                            paragraph += stripped_line + " "
+                        else:
+                            # End of paragraph
+                            text += paragraph.strip() + "\n"
+                            paragraph = ""
+                    if paragraph:
+                        text += paragraph.strip() + "\n"  # Last paragraph if no empty line at end
     except Exception as e:
         logger.error(f"Error extracting text from PDF: {e}")
         text = f"Error extracting text: {str(e)}"
     return text
+
+
 
 def extract_text_from_docx(file_path):
     """Extract text from a DOCX file"""
