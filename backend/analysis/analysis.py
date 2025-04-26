@@ -103,24 +103,47 @@ class RentalAnalysis:
         logger.info(f"Added {len(requirements)} requirements to minimal_requirements collection")
     
     def _populate_sample_agreement(self):
-        """Populate the sample agreement collection with clauses from a sample rental agreement file."""
-        file_path = os.path.join(self.sample_data_dir, "Mietvertrag_2.txt")
-        text = extract_text(file_path)
-        sample_clauses = split_text_into_sections(text)
+        """Populate the sample agreement collection with clauses from multiple sample rental agreement files."""
+        sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx"]
+        all_sample_clauses = []
         
-        if not sample_clauses:
-            logger.warning("No clauses found in file. Using default set.")
-            sample_clauses = [
+        # Process each sample file
+        for filename in sample_files:
+            file_path = os.path.join(self.sample_data_dir, filename)
+            
+            # Check if file exists
+            if not os.path.exists(file_path):
+                logger.warning(f"Sample file not found: {file_path}")
+                continue
+            
+            # Extract text from the file
+            try:
+                text = extract_text(file_path)
+                sample_clauses = split_text_into_sections(text)
+                
+                logger.info(f"Extracted {len(sample_clauses)} clauses from {filename}")
+                
+                # Add to the combined list
+                all_sample_clauses.extend(sample_clauses)
+            except Exception as e:
+                logger.error(f"Error extracting text from {filename}: {e}")
+        
+        # If no clauses were found in any file, use default set
+        if not all_sample_clauses:
+            logger.warning("No clauses found in any sample files. Using default set.")
+            all_sample_clauses = [
                 "§1 Mieträume: Der Vermieter vermietet an den Mieter zu Wohnzwecken die Wohnung.",
                 "§2 Mietdauer: Das Mietverhältnis beginnt am 01.01.2023."
             ]
         
         # Create embeddings for all clauses
-        embeddings = self.model.encode(sample_clauses)
+        embeddings = self.model.encode(all_sample_clauses)
         
         # Add each clause to the collection
-        for clause, emb in zip(sample_clauses, embeddings):
-            clause_number = clause.split(" ")[0]
+        for clause, emb in zip(all_sample_clauses, embeddings):
+            # Extract clause number if available
+            clause_parts = clause.split(" ", 1)
+            clause_number = clause_parts[0] if len(clause_parts) > 0 else ""
             
             self.sample_agreement.add(
                 documents=[clause],
@@ -129,6 +152,8 @@ class RentalAnalysis:
                 metadatas=[{"info": "Beispiel"}]
             )
         
+        logger.info(f"Added {len(all_sample_clauses)} clauses to sample_agreement collection")
+    
     def split_text_into_sections(self, text):
         """Split a text into sentences using newline character."""
         return split_text_into_sections(text)
