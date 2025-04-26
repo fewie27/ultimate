@@ -21,8 +21,8 @@ RUN mkdir -p /app/uploads /app/chroma_data
 # Copy the application code
 COPY . .
 
-# Download NLTK data
-RUN python -c "import nltk; nltk.download('punkt')"
+# Download spaCy German language model
+RUN python -m spacy download de_core_news_sm
 
 EXPOSE 5000
 

@@ -4,112 +4,90 @@ import PyPDF2
 import docx
 import pytesseract
 from PIL import Image
-import nltk
 import json
 import re
+import spacy
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Download necessary NLTK data for sentence tokenization
+# Load the German spaCy model
 try:
-    nltk.download('punkt', quiet=True)
+    nlp = spacy.load("de_core_news_sm")
+    logger.info("Loaded German spaCy model for sentence detection")
 except Exception as e:
-    logger.error(f"Error downloading NLTK data: {e}")
+    logger.error(f"Error loading spaCy model: {e}")
+    # Simple German pipeline as fallback if model can't be loaded
+    try:
+        nlp = spacy.blank("de")
+        nlp.add_pipe("sentencizer")
+        logger.info("Created basic German pipeline with sentencizer")
+    except Exception as e2:
+        logger.error(f"Error creating fallback spaCy pipeline: {e2}")
+        nlp = None
 
 def split_text_into_sections(text):
-    """Split German text into sentences using a reliable pattern-based approach 
-    optimized for legal documents while preserving the periods at the end."""
-    if not text:
+    """Split German text into sentences using spaCy's language model.
+    This properly handles German sentence boundaries and preserves punctuation."""
+    if not text or not text.strip():
         return []
     
+    # Try using spaCy for sentence detection
+    if nlp is not None:
+        try:
+            # Process the text with spaCy
+            doc = nlp(text)
+            
+            # Extract sentences with their ending punctuation
+            sentences = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+            
+            # If spaCy didn't find any sentences, fallback to paragraph splitting
+            if not sentences:
+                sentences = [p.strip() for p in text.split('\n') if p.strip()]
+                
+            return sentences
+        except Exception as e:
+            logger.error(f"Error in spaCy sentence splitting: {e}")
+    
+    # Fallback method if spaCy isn't available or fails
     try:
-        # Normalize whitespace but keep paragraphs
-        paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+        # Simple paragraph and punctuation-based splitting
+        paragraphs = text.split('\n')
         sentences = []
         
         for paragraph in paragraphs:
-            if not paragraph:
-                continue
-            
-            # Use a simpler approach that preserves sentence endings
-            # Look for patterns like ". " followed by uppercase or end of text
-            # But exclude common abbreviations and numbers
-            parts = []
-            last_end = 0
-            
-            # Pattern: Look for period + space + capital letter
-            # Negative lookbehind to avoid splitting after common abbreviations or numbers
-            pattern = r'(?<![0-9]|[A-Za-z]\.[A-Za-z]|Nr|Abs|Art|Str|Dr|Prof|bzw|[0-9])\.\s+(?=[A-ZÄÖÜ])'
-            
-            for match in re.finditer(pattern, paragraph):
-                # Include the period in the sentence
-                end_pos = match.end() - 1  # Points to the space after the period
-                
-                # Extract sentence with the period
-                sentence = paragraph[last_end:end_pos].strip()
-                if sentence and not (len(sentence) <= 5 and re.match(r'^[0-9]+\.?$', sentence)):
-                    parts.append(sentence)
-                
-                last_end = match.end() - 1  # Start next sentence after the space
-                
-            # Add the last part
-            last_part = paragraph[last_end:].strip()
-            if last_part:
-                parts.append(last_part)
-            
-            # Process each part to ensure it ends with proper punctuation
-            for part in parts:
-                if part and not re.search(r'[\.\!\?]$', part):
-                    # If sentence doesn't end with punctuation and not just a number
-                    if not re.match(r'^[0-9]+$', part.strip()):
-                        part = part + "."
-                sentences.append(part)
-        
-        # Join short fragments like section numbers with their sentences
-        final_sentences = []
-        i = 0
-        while i < len(sentences):
-            current = sentences[i]
-            
-            # If this is a short fragment like a number or section marker
-            if (i < len(sentences) - 1 and 
-                (re.match(r'^[0-9§]+\.?$', current) or len(current) < 3)):
-                # Join with next sentence
-                current = current + " " + sentences[i+1]
-                i += 2
-            else:
-                i += 1
-                
-            final_sentences.append(current)
-        
-        return final_sentences
-    
-    except Exception as e:
-        logger.error(f"Error in sentence splitting: {e}")
-        # Fallback to a simpler approach
-        result = []
-        for para in text.split('\n'):
-            if not para.strip():
+            if not paragraph.strip():
                 continue
                 
             # Simple split at ". " but preserve the periods
             current_pos = 0
-            for match in re.finditer(r'\.\s+(?=[A-ZÄÖÜ])', para):
-                end_pos = match.start() + 1  # Include the period
-                sentence = para[current_pos:end_pos].strip()
-                if sentence:
-                    result.append(sentence)
-                current_pos = match.end()
+            sentence_endings = list(re.finditer(r'[.!?]\s+(?=[A-ZÄÖÜ])', paragraph))
+            
+            if sentence_endings:
+                for match in sentence_endings:
+                    end_pos = match.end() - 1  # Include the punctuation but not the space
+                    sentence = paragraph[current_pos:end_pos].strip()
+                    if sentence:
+                        sentences.append(sentence)
+                    current_pos = match.end() - 1  # Start after the punctuation
                 
-            # Add the last part
-            if current_pos < len(para):
-                last_sentence = para[current_pos:].strip()
-                if last_sentence:
-                    result.append(last_sentence)
+                # Add the last part if there's content after the last period
+                if current_pos < len(paragraph):
+                    last_sentence = paragraph[current_pos:].strip()
+                    if last_sentence:
+                        sentences.append(last_sentence)
+            else:
+                # If no sentence boundaries found, add the whole paragraph
+                if paragraph.strip():
+                    sentences.append(paragraph.strip())
                     
-        return result
+        return sentences
+        
+    except Exception as e:
+        logger.error(f"Error in fallback sentence splitting: {e}")
+        # Last resort: just split by newlines
+        return [line.strip() for line in text.split('\n') if line.strip()]
 
 def extract_text_from_pdf(file_path):
     """Extract text from a PDF file, adding one backslash-n after each paragraph."""
