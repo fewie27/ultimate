@@ -104,7 +104,7 @@ class RentalAnalysis:
     
     def _populate_sample_agreement(self):
         """Populate the sample agreement collection with clauses from multiple sample rental agreement files."""
-        sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx"]
+        sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx", "Mietvertrag_5.docx", "Mietvertrag_6.docx", "Mietvertrag_7.docx"]
         all_sample_clauses = []
         
         # Process each sample file
@@ -205,7 +205,7 @@ class RentalAnalysis:
 
                 
                 # Check if there's a match in the sample agreement
-                if search_results["distances"][0][0] > 0.5:  # Higher distance means less similar
+                if search_results["distances"][0][0] > 0.4:  # Higher distance means less similar
                     # This is an unusual clause that doesn't match any standard clause
                     
                     results.append({
