@@ -35,7 +35,7 @@ const Upload: React.FC<UploadProps> = ({ onUploadSuccess }) => {
           const formData = new FormData();
           formData.append("file", file);
       
-          const response = await axios.post("http://10.181.250.200:5001/api/upload", formData, {
+          const response = await axios.post("https://stage.ultimate.wiegand.cloud/api/upload", formData, {
             headers: {
               "Content-Type": "multipart/form-data",
             },

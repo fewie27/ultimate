@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: ultimate-web-app-backend
+    volumes:
+      - ./backend:/app
+      - ./openapi:/openapi
+      - chroma-data:/app/chroma_data
+      - ./sample_data:/sample_data
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ultimate-web-app-backend.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.ultimate-web-app-backend.entrypoints=websecure"
+      - "traefik.http.routers.ultimate-web-app-backend.tls.certresolver=cloudflare"
+      - "traefik.http.services.ultimate-web-app-backend.loadbalancer.server.port=5000"
+      - "traefik.http.routers.ultimate-web-app-backend.service=ultimate-web-app-backend"
+    env_file:
+      - .env
+    networks:
+      - web-app-network
+
+  frontend:
+    build: ./frontend
+    container_name: ultimate-web-app-frontend
+    volumes:
+      - ./frontend:/app
+      - ./openapi:/openapi
+    environment:
+      - OPENAPI_SPEC_PATH=/openapi/openapi.yml
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ultimate-web-app-frontend.rule=Host(`www.${DOMAIN}`)"
+      - "traefik.http.routers.ultimate-web-app-frontend.entrypoints=websecure"
+      - "traefik.http.routers.ultimate-web-app-frontend.tls.certresolver=cloudflare"
+      - "traefik.http.services.ultimate-web-app-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.ultimate-web-app-frontend.service=ultimate-web-app-frontend"
+    env_file:
+      - .env
+    networks:
+      - web-app-network
+
+networks:
+  web-app-network:
+    driver: bridge
+    name: web-app-network
+
+volumes:
+  frontend-node-modules:
+  chroma-data:

@@ -1,0 +1,55 @@
+name: Deploy to Staging and Production Servers
+
+on:
+  push:
+    branches:
+      - main  # Trigger auf Commit im main-Branch
+    tags:
+      - 'v*'  # Trigger auf Tags in der Form v...
+
+jobs:
+  stage-deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # Nur wenn es ein Commit im main-Branch ist
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Deploy to Staging Server
+        run: |
+          ssh -o StrictHostKeyChecking=no -p ${{ secrets.DEPLOY_SSH_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER_IP }} << 'EOF'
+            cd docker/swipac-backend/STAGE  # Pfad zu deinem Projekt auf dem Server
+            eval $(ssh-agent -s)
+            ssh-add ../.ssh/id_git
+            git pull origin main
+            docker compose -f docker-compose.prod.yml up --build -d
+          EOF
+
+  prod-deploy:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')  # Nur wenn es ein Tag mit "v" ist
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Deploy to Production Server
+        run: |
+          ssh -o StrictHostKeyChecking=no -p ${{ secrets.DEPLOY_SSH_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER_IP }} << 'EOF'
+            cd docker/swipac-backend/PROD  # Pfad zu deinem Projekt auf dem Produktionsserver
+            eval $(ssh-agent -s)
+            ssh-add ../.ssh/id_git
+            git pull origin ${{ github.ref }}  # Holen des spezifischen Tags
+            docker compose -f docker-compose.prod.yml up --build -d
+          EOF

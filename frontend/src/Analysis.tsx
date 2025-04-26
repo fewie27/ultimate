@@ -47,7 +47,7 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
     const fetchAnalysis = async (analysisId: string) => {
         try {
-            const response = await axios.get<AnalysisResponse>(`http://10.181.250.200:5001/api/analysis/${analysisId}`);
+            const response = await axios.get<AnalysisResponse>(`https://stage.ultimate.wiegand.cloud/api/analysis/${analysisId}`);
             console.log(response.data.results);
             setFullText(highlightText(response.data.results));
             setFindings(response.data.results);
@@ -82,10 +82,10 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
         findings.forEach((finding) => {
             if (finding.category === "match_found") {
-                highlightedText += finding.text + "<br/>";
+                highlightedText += finding.text.replace("\n","<br/>");
             } else {
                 const color = getColorForCategory(finding.category);
-                highlightedText += `<mark style="background-color:${color};">${finding.text}</mark>` + "<br/>";
+                highlightedText += `<mark style="background-color:${color};">${finding.text}</mark>`.replace("\n","<br/>");
             }
         });
 
