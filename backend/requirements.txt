@@ -1,6 +1,9 @@
-flask
-flask-cors
-connexion[swagger-ui,flask,uvicorn]
-openapi-spec-validator
+fastapi>=0.95.0
+uvicorn>=0.22.0
+python-multipart
+pydantic>=2.0.0
+PyPDF2
+python-docx
+pytesseract
+pillow
 python-dateutil
-pytest
