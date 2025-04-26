@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: web-app-backend
+    volumes:
+      - ./backend:/app
+      - ./openapi:/openapi
+    ports:
+      - "5001:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+    command: python app.py
+    networks:
+      - web-app-network
+
+  frontend:
+    build: ./frontend
+    container_name: web-app-frontend
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+      - ./openapi:/openapi:ro
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - web-app-network
+
+networks:
+  web-app-network:
+    driver: bridge
+
+volumes:
+  frontend-node-modules: 

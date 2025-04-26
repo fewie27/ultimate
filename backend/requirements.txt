@@ -1,0 +1,6 @@
+flask
+flask-cors
+connexion[swagger-ui,flask,uvicorn]
+openapi-spec-validator
+python-dateutil
+pytest
