@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-type Category = "fehlend" | "ungewöhnlich" | "nichtig";
+type Category = "fehlend" | "unusual" | "nichtig" | "match_found";
 
 interface AnalysisItem {
     text: string;
@@ -19,7 +19,7 @@ const mockData: AnalysisResponse = {
     results: [
         {
             text: "Der Mieter darf die Mieträume nur zu Wohnzwecken nutzen.",
-            category: "ungewöhnlich",
+            category: "unusual",
             description: "Einschränkung der Nutzung ungewöhnlich restriktiv.",
         },
         {
@@ -35,15 +35,21 @@ const mockData: AnalysisResponse = {
     ],
 };
 
-const Analysis: React.FC = () => {
+interface AnalysisProps {
+    id: string;
+    backToUpload: () => void;
+}
+
+const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
     const [fullText, setFullText] = useState<string>("Der Mieter darf die Mieträume nur zu Wohnzwecken nutzen. <mark style=\"background-color:yellow\">Der Vertrag verlängert sich automatisch um weitere 12 Monate.</mark> Keine Haustiere erlaubt.");
     const [findings, setFindings] = useState<AnalysisItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all");
 
     const fetchAnalysis = async (analysisId: string) => {
         try {
-            const response = await axios.get<AnalysisResponse>(`http://localhost:5001/analysis/${analysisId}`);
-            console.log(response.data);
+            const response = await axios.get<AnalysisResponse>(`http://10.181.250.200:5001/api/analysis/${analysisId}`);
+            console.log(response.data.results);
+            setFullText(highlightText(response.data.results));
             setFindings(response.data.results);
         } catch (error) {
             console.error("Error fetching analysis, using mock data:", error);
@@ -52,36 +58,38 @@ const Analysis: React.FC = () => {
     };
 
     useEffect(() => {
-        const analysisId = "mock-id";
+        const analysisId = id;
         fetchAnalysis(analysisId);
     }, []);
 
-    const highlightText = () => {
-        let highlighted = fullText;
-
-        findings.forEach((finding, index) => {
-            const regex = new RegExp(finding.text, "g");
-            const color = getColorForCategory(finding.category);
-            highlighted = highlighted.replace(
-                regex,
-                `<mark style="background-color:${color};">${finding.text}</mark>`
-            );
-        });
-
-        return highlighted;
-    };
-
-    const getColorForCategory = (category: Category) => {
+    const getColorForCategory = (category: Category): string => {
         switch (category) {
             case "fehlend":
-                return "#ffcccb"; // rot
-            case "ungewöhnlich":
-                return "#ffff99"; // gelb
+                return "red";
+            case "unusual":
+                return "yellow";
             case "nichtig":
-                return "#d1c4e9"; // lila
+                return "gray";
+            case "match_found":
+                return "";
             default:
-                return "#fff";
+                return "transparent";
         }
+    };
+
+    const highlightText = (findings: AnalysisItem[]): string => {
+        let highlightedText = "";
+
+        findings.forEach((finding) => {
+            if (finding.category === "match_found") {
+                highlightedText += finding.text + "<br/>";
+            } else {
+                const color = getColorForCategory(finding.category);
+                highlightedText += `<mark style="background-color:${color};">${finding.text}</mark>` + "<br/>";
+            }
+        });
+
+        return highlightedText;
     };
 
     const filteredFindings = selectedCategory === "all"
@@ -90,6 +98,9 @@ const Analysis: React.FC = () => {
 
     return (
         <div style={styles.outerContainer}>
+            <button style={styles.backButton} onClick={backToUpload}>
+                ←
+            </button>
             <div style={styles.main}>
 
                 <h1 style={styles.title}>ULTIMATE</h1>
@@ -98,7 +109,7 @@ const Analysis: React.FC = () => {
                     <div style={styles.documentContainer}>
                         <div
                             style={styles.document}
-                            dangerouslySetInnerHTML={{ __html: highlightText() }}
+                            dangerouslySetInnerHTML={{ __html: fullText }}
                         />
                     </div>
 
@@ -145,7 +156,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     main: {
         fontFamily: "Lexend, sans-serif",
-        backgroundColor: "#f8fafa",
+        backgroundColor: "#17002E",
     },
     container: {
         display: "flex",
@@ -154,7 +165,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     title: {
         fontFamily: "Lexend Mega, sans-serif",
         fontSize: "65px",
-        color: "#72dedf",
+        color: "#F25D00",
         marginLeft: "auto",
         marginRight: "auto",
         display: "block",
@@ -170,17 +181,17 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: "18px",
         lineHeight: "1.8",
         margin: "20px",
-        marginRight: "30px"
+        marginRight: "30px",
     },
     document: {
         borderRadius: "25px",
-        backgroundColor: "#00000010",
+        backgroundColor: "#ffffffff",
         padding: "30px",
     },
     sidebar: {
         flex: 1,
         padding: "20px",
-        backgroundColor: "#00000010",
+        backgroundColor: "#ffffffff",
         borderRadius: "25px",
         display: "flex",
         flexDirection: "column",
@@ -191,8 +202,8 @@ const styles: { [key: string]: React.CSSProperties } = {
         width: "45%",
         aspectRatio: "1 / 1",
         border: "none",
-        backgroundColor: "#ffffff",
-        color: "#000000",
+        backgroundColor: "#F25D00",
+        color: "#ffffff",
         borderRadius: "8px",
         cursor: "pointer",
         fontSize: "16px",
@@ -216,4 +227,22 @@ const styles: { [key: string]: React.CSSProperties } = {
         marginBottom: "10px",
         boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
     },
+    backButton: {
+        position: "absolute",
+        top: "20px",
+        left: "20px",
+        width: "50px",
+        height: "50px",
+        borderRadius: "50%",
+        backgroundColor: "#F25D00",
+        color: "white",
+        border: "none",
+        fontSize: "24px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+    },
+    
 };

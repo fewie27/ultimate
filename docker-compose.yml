@@ -8,6 +8,7 @@ services:
       - ./backend:/app
       - ./openapi:/openapi
       - chroma-data:/app/chroma_data
+      - ./sample_data:/sample_data
     ports:
       - "5001:5000"
     environment:
