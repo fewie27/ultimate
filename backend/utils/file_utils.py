@@ -118,12 +118,15 @@ def extract_text_from_pdf(file_path):
     return text
 
 def extract_text_from_docx(file_path):
-    """Extract text from a DOCX file"""
+    """Extract text from a DOCX file, preserving empty lines"""
     text = ""
     try:
         doc = docx.Document(file_path)
         for para in doc.paragraphs:
-            text += para.text + "\n"
+            if para.text.strip() == "":
+                text += "\n"  # Represent empty paragraph by an extra newline
+            else:
+                text += para.text.strip() + "\n"
     except Exception as e:
         logger.error(f"Error extracting text from DOCX: {e}")
         text = f"Error extracting text: {str(e)}"

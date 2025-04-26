@@ -3,20 +3,12 @@ import uuid
 import logging
 from chromadb import PersistentClient
 from sentence_transformers import SentenceTransformer
-import nltk
-
 # Import utilities
 from utils.file_utils import extract_text, split_text_into_sections
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Download necessary NLTK data for sentence tokenization
-try:
-    nltk.download('punkt', quiet=True)
-except Exception as e:
-    logger.error(f"Error downloading NLTK data: {e}")
 
 class RentalAnalysis:
     """
