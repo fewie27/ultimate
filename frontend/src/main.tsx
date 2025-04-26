@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import Upload from "./Upload"; // falls du die Komponente in Upload.tsx auslagerst
-// oder hier einfach direkt verwenden, wenn alles in main.tsx bleibt
+import Upload from "./Upload";
+import Analysis from "./Analysis";
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
@@ -9,6 +9,6 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <Upload />
+    <Analysis/>
   </React.StrictMode>
 );

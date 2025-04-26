@@ -59,7 +59,7 @@ export default Upload;
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
-    fontFamily: "'Roboto', sans-serif",
+    fontFamily: "Lexend, sans-serif",
     minHeight: "100vh",
     backgroundColor: "#f8fafa",
     display: "flex",
@@ -68,10 +68,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "center",
   },
   title: {
+    fontFamily: "Lexend Mega, sans-serif",
     fontSize: "36px",
     color: "#72dedf",
-    letterSpacing: "5px",
-    margin: "0",
+    margin: "5px",
     fontWeight: "500",
   },
   subtitle: {
@@ -129,6 +129,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: "16px",
     borderRadius: "8px",
     cursor: "pointer",
+    width: "200px"
   },
   fileName: {
     marginTop: "20px",
