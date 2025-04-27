@@ -1,24 +1,31 @@
-# Web Application with Docker
+# Ultimate Legal Document Analysis
 
-This project is a web application with a Python backend, a React.js frontend, and uses OpenAPI for interface generation.
+A powerful legal document analysis tool designed to analyze rental agreements and identify potential issues. Built with a Python FastAPI backend and React frontend.
+
+## Features
+
+- **Document Upload**: Easily upload rental agreements for analysis
+- **Legal Analysis**: Automatically analyze documents for potentially invalid or unusual clauses
+- **Essential Content Extraction**: Identifies and extracts key information like parties, rental object, rent amount, and rental start date
+- **Vector-based Comparison**: Uses advanced embedding techniques to compare with sample agreements and legal requirements
+- **AI-powered Analysis**: Leverages OpenAI for intelligent document understanding
 
 ## Project Structure
 
 ```
 .
-├── backend/                # Python Flask backend
+├── backend/                # Python FastAPI backend
+│   ├── analysis/           # Document analysis engine
 │   ├── api/                # API implementations
-│   ├── openapi/            # OpenAPI specification directory 
-│   ├── app.py              # Main Flask application
-│   ├── Dockerfile          # Backend container configuration
+│   ├── utils/              # Utility functions
+│   ├── main.py             # Main FastAPI application
 │   └── requirements.txt    # Python dependencies
-├── frontend/               # React.js frontend
-│   ├── public/             # Static files
+├── frontend/               # React frontend
 │   ├── src/                # React source code
-│   ├── Dockerfile          # Frontend container configuration
 │   └── package.json        # NPM dependencies
 ├── openapi/                # OpenAPI specification
 │   └── openapi.yml         # API specification
+├── sample_data/            # Sample rental agreements
 └── docker-compose.yml      # Docker Compose configuration
 ```
 
@@ -26,57 +33,70 @@ This project is a web application with a Python backend, a React.js frontend, an
 
 ### Prerequisites
 
-You need to have Docker and Docker Compose installed on your machine.
+- Docker and Docker Compose
+- Python 3.8+
+- Node.js 14+
+- OpenAI API key
 
-### Running the Application
+### Environment Setup
 
-1. Clone this repository
-2. Start the application with Docker Compose:
+1. Copy the template environment file:
+   ```bash
+   cp .env.template .env
+   ```
+
+2. Add your OpenAI API key to the `.env` file:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+
+### Running with Docker
+
+Start the application with Docker Compose:
 
 ```bash
 docker-compose up
 ```
 
-3. The application will be available at:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:5000/api
-   - API Documentation: http://localhost:5000/api/ui
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000/api
 
-## API Generation
+### Development Setup
 
-The system automatically generates API interfaces for both the frontend and backend from the OpenAPI specification.
+#### Backend
 
-- Backend: Connexion (Python) reads the OpenAPI spec and handles routing
-- Frontend: openapi-typescript-codegen generates TypeScript clients during build
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
 
-## Development
-
-### Frontend Development
-
-To run the frontend in development mode:
+#### Frontend
 
 ```bash
 cd frontend
 npm install
-npm run generate-api  # Generate API clients from OpenAPI spec
-npm start
+npm run dev
 ```
 
-### Backend Development
+## Technical Details
 
-To run the backend in development mode:
+### Backend
 
-```bash
-cd backend
-pip install -r requirements.txt
-python app.py
-```
+- **FastAPI**: High-performance API framework
+- **Sentence Transformers**: For generating document embeddings
+- **ChromaDB**: Vector database for similarity comparisons
+- **OpenAI API**: For analyzing essential contract contents
 
-## Notes
+### Frontend
 
-This is a starter project. For production use, consider:
-- Adding proper authentication
-- Setting up a database
-- Implementing error handling
-- Adding tests
-- Setting up CI/CD pipelines 
+- **React**: UI framework
+- **TypeScript**: Type-safe JavaScript
+- **Vite**: Fast build tooling
+
+## License
+
+[MIT License](LICENSE) 
