@@ -19,7 +19,7 @@ const Upload: React.FC<UploadProps> = ({ onUploadSuccess }) => {
             "application/msword", // .doc
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
         ];
-        
+
         if (allowedTypes.includes(file.type)) {
             setFileName(file.name);
             await uploadFile(file);
@@ -30,32 +30,32 @@ const Upload: React.FC<UploadProps> = ({ onUploadSuccess }) => {
 
     const uploadFile = async (file: File) => {
         try {
-          setUploading(true);
-          setError("");
-          const formData = new FormData();
-          formData.append("file", file);
-      
-          const response = await axios.post("http://10.181.250.200:5001/api/upload", formData, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          });
-      
-          const data = response.data;
-          if (data?.id) {
-            Cookies.set("analysisId", data.id);  // Cookie setzen
-            onUploadSuccess(data.id);             // Richtige ID übergeben
-          } else {
-            setError("Upload succeeded, but no ID returned.");
-          }
+            setUploading(true);
+            setError("");
+            const formData = new FormData();
+            formData.append("file", file);
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const response = await axios.post(`${apiUrl}/api/upload`, formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+
+            const data = response.data;
+            if (data?.id) {
+                Cookies.set("analysisId", data.id);  // Cookie setzen
+                onUploadSuccess(data.id);             // Richtige ID übergeben
+            } else {
+                setError("Upload succeeded, but no ID returned.");
+            }
         } catch (err) {
-          console.error(err);
-          setError("An error occurred during upload.");
+            console.error(err);
+            setError("An error occurred during upload.");
         } finally {
-          setUploading(false);
+            setUploading(false);
         }
-      };
-      
+    };
+
 
     const triggerFileInput = () => {
         const fileInput = document.getElementById("fileInput") as HTMLInputElement;
@@ -212,5 +212,5 @@ const styles: { [key: string]: React.CSSProperties } = {
         height: "60px",
         animation: "spin 1s linear infinite",
     },
-    
+
 };

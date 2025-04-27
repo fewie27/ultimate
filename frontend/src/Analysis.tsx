@@ -66,7 +66,8 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
     const fetchAnalysis = async (analysisId: string) => {
         try {
-            const response = await axios.get<AnalysisResponse>(`http://10.181.250.200:5001/api/analysis/${analysisId}`);
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const response = await axios.get<AnalysisResponse>(`${apiUrl}/api/analysis/${analysisId}`);
             response.data.results.forEach((f, idx) => {
                 f.id = `finding-${idx + 1}`;
             });
