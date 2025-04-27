@@ -336,28 +336,3 @@ class RentalAnalysis:
 
 # Create a singleton instance
 analyzer = RentalAnalysis()
-
-if __name__ == "__main__":
-    # Test code
-    query = "Kündigungsfrist Mietvertrag"
-    
-    # Query minimal requirements
-    query_embedding = analyzer.model.encode([query])[0].tolist()
-    results = analyzer.minimal_requirements.query(
-        query_embeddings=[query_embedding],
-        n_results=2
-    )
-    
-    print("\n🔍 Relevante minimale Anforderungen:")
-    for doc, dist in zip(results["documents"][0], results["distances"][0]):
-        print(f" - {doc} (Ähnlichkeit: {1 - dist:.4f})")
-    
-    # Query sample agreement
-    results = analyzer.sample_agreement.query(
-        query_embeddings=[query_embedding],
-        n_results=2
-    )
-    
-    print("\n🔍 Relevante Klauseln aus dem Mustermietvertrag:")
-    for doc, dist in zip(results["documents"][0], results["distances"][0]):
-        print(f" - {doc} (Ähnlichkeit: {1 - dist:.4f})")
