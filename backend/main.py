@@ -55,6 +55,11 @@ class AnalysisItem(BaseModel):
     category: str
     description: str
 
+class EssentialsResponse(BaseModel):
+    analysis: str
+    status: str
+    error: Optional[str] = None
+
 class UploadResponse(BaseModel):
     id: str
     message: str
@@ -62,6 +67,7 @@ class UploadResponse(BaseModel):
 class AnalysisResponse(BaseModel):
     id: str
     results: List[AnalysisItem]
+    essentials: Optional[EssentialsResponse] = None
 
 class SearchResult(BaseModel):
     text: str
@@ -113,6 +119,29 @@ def analyze_legal_text(text):
         
         return results
 
+def analyze_essentials(text):
+    """
+    Analyze the essential contents of a rental agreement
+    Uses the rental analyzer to call OpenAI API
+    """
+    try:
+        # Use the rental agreement analyzer for essentials analysis
+        results = rental_analyzer.analyze_essentials(text)
+        
+        # Log analysis results
+        logger.info(f"Essentials analysis complete")
+        
+        return results
+    except Exception as e:
+        logger.error(f"Error analyzing essentials with rental analyzer: {e}")
+        
+        # Fallback if analysis fails
+        return {
+            "analysis": "Fehler bei der Analyse der wesentlichen Vertragsinhalte.",
+            "status": "error",
+            "error": str(e)
+        }
+
 # API endpoints
 @app.post("/api/upload", response_model=UploadResponse, status_code=201)
 async def upload_document(file: UploadFile = File(...)):
@@ -140,11 +169,14 @@ async def upload_document(file: UploadFile = File(...)):
         
         # Analyze the text
         results = analyze_legal_text(extracted_text)
+
+        essentials = analyze_essentials(extracted_text)
         
         # Format and save the results
         analysis_response = {
             "id": analysis_id,
-            "results": results
+            "results": results,
+            "essentials": essentials
         }
         
         # Store results for API access
@@ -184,7 +216,8 @@ async def get_analysis(analysis_id: str):
     
     return {
         "id": analysis["id"],
-        "results": analysis["results"]
+        "results": analysis["results"],
+        "essentials": analysis.get("essentials")
     }
 
 @app.get("/api/search", response_model=SearchResponse)

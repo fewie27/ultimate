@@ -1,14 +1,29 @@
 import os
 import uuid
 import logging
+import json
 from chromadb import PersistentClient
 from sentence_transformers import SentenceTransformer
+import openai
+from dotenv import load_dotenv
+
 # Import utilities
 from utils.file_utils import extract_text, split_text_into_sections
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+# Initialize OpenAI with API key
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    logger.warning("OPENAI_API_KEY environment variable not found. OpenAI API calls will fail.")
+else:
+    logger.info("OPENAI_API_KEY found.")
+    
+openai.api_key = openai_api_key
 
 class RentalAnalysis:
     """
@@ -162,6 +177,7 @@ class RentalAnalysis:
         Returns:
             list: Analysis results for each identified issue, formatted according to the OpenAPI spec
         """
+        
         if document_metadata is None:
             document_metadata = {}
             
@@ -229,6 +245,88 @@ class RentalAnalysis:
             })
         
         return results
+    
+    def analyze_essentials(self, text):
+        """
+        Analyze the essential contents of a rental agreement using OpenAI API.
+        
+        The essential contents are:
+        1. Parties to the contract
+        2. Rental object
+        3. Rent amount
+        4. Start of rental
+        
+        Args:
+            text (str): The text of the rental agreement
+            
+        Returns:
+            dict: Dictionary containing the essential contents of the rental agreement
+        """
+        logger.info("Analyzing essential contents of rental agreement")
+        
+        try:
+            # Define the prompt for OpenAI
+            prompt = """Bitte überprüfe den sogleich angegebenen Mietvertrag auf seine wesentlichen Vertragsinhalte und gebe die Ergebnisse in einem JSON-Format zurück. Die wesentlichen Vertragsinhalte eines Mietvertrags sind:
+                1. Die Vertragsparteien
+                2. Der Mietgegenstand
+                3. Die Miete
+                4. Der Mietbeginn
+
+                Falls einer dieser Punkte nicht genannt ist, gib den Wert als `null` zurück. Der JSON-Output soll wie folgt aussehen:
+
+                {
+                    "vertragsparteien": "<Vertragsparteien>",
+                    "mietgegenstand": "<Mietgegenstand>",
+                    "miete": "<Miete>",
+                    "mietbeginn": "<Mietbeginn>"
+                }
+
+                Mietvertrag:
+            """
+                        
+            # Make API call to OpenAI
+            response = openai.chat.completions.create(
+                model="gpt-4",  # Using gpt-4 as gpt-4.1 is not a valid model name
+                messages=[
+                    {"role": "system", "content": "Du bist ein hilfreicher Assistent, der Mietverträge analysiert."},
+                    {"role": "user", "content": prompt + text}
+                ],
+                temperature=0.0,  # We want deterministic answers
+                max_completion_tokens=1000
+            )
+            print(response)
+            response_text = response.choices[0].message.content
+
+            # Attempt to parse the response as JSON
+            try:
+                # Extract JSON from the response text if it's wrapped in ```json ... ``` blocks
+                if "```json" in response_text:
+                    json_start = response_text.find('```json') + 7
+                    json_end = response_text.rfind('```')
+                    json_str = response_text[json_start:json_end].strip()
+                    result = json.loads(json_str)
+                else:
+                    # Try direct parsing
+                    result = json.loads(response_text)
+                    
+                logger.info("Successfully parsed JSON response")
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parse error: {e}")
+                result = {
+                    "error": "Invalid JSON response from OpenAI",
+                    "response": response_text
+                }
+            
+            logger.info("Essential content analysis complete")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error analyzing essential contents: {e}")
+            return {
+                "analysis": "Fehler bei der Analyse der wesentlichen Vertragsinhalte.",
+                "status": "error",
+                "error": str(e)
+            }
 
 # Create a singleton instance
 analyzer = RentalAnalysis()

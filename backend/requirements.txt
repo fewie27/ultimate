@@ -10,3 +10,5 @@ python-dateutil
 chromadb>=0.4.0
 sentence-transformers
 nltk
+openai
+python-dotenv
