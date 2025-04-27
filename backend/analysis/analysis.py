@@ -223,7 +223,7 @@ class RentalAnalysis:
                 else:
                     category.append("match_found")
 
-                if minimal_distance <= 2:
+                if minimal_distance <= 4:
                     category.append("invalid")
                 else:
                     category.append("valid")
