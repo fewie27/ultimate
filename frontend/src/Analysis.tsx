@@ -74,10 +74,10 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
             setFullText(highlightText(response.data.results));
             setFindings(response.data.results);
             setChecklistItems([
-                { "title": "Vertragsparteien / Parties' names", completed: response.data.essentials.vertragsparteien != null, "description": response.data.essentials.vertragsparteien ?? "------" },
-                { "title": "Mietgegenstand / Lease start", completed: response.data.essentials.mietgegenstand != null, "description": response.data.essentials.mietgegenstand ?? "------" },
+                { "title": "Vertragsparteien / Parties' involved", completed: response.data.essentials.vertragsparteien != null, "description": response.data.essentials.vertragsparteien ?? "------" },
+                { "title": "Mietgegenstand, Nutzungszweck / Leased property, intended use, ", completed: response.data.essentials.mietgegenstand != null, "description": response.data.essentials.mietgegenstand ?? "------" },
                 { "title": "Miete / Rent", completed: response.data.essentials.miete != null, "description": response.data.essentials.miete ?? "------" },
-                { "title": "Mietbeginn / Rent start", completed: response.data.essentials.mietbeginn != null, "description": response.data.essentials.mietbeginn ?? "------" },
+                { "title": "Mietbeginn / Start of lease", completed: response.data.essentials.mietbeginn != null, "description": response.data.essentials.mietbeginn ?? "------" },
 
             ]);
         } catch (error) {
