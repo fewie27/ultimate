@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     build: ./backend
-    container_name: ultimate-web-app-backend
+    container_name: ultimate-web-app-backend-${ENVIRONMENT}
     volumes:
       - ./backend:/app
       - ./openapi:/openapi
@@ -14,11 +14,11 @@ services:
     command: python -m uvicorn main:app --host 0.0.0.0 --port 5000 --reload
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ultimate-web-app-backend.rule=Host(`api.${DOMAIN}`)"
-      - "traefik.http.routers.ultimate-web-app-backend.entrypoints=websecure"
-      - "traefik.http.routers.ultimate-web-app-backend.tls.certresolver=cloudflare"
-      - "traefik.http.services.ultimate-web-app-backend.loadbalancer.server.port=5000"
-      - "traefik.http.routers.ultimate-web-app-backend.service=ultimate-web-app-backend"
+      - "traefik.http.routers.ultimate-web-app-backend-${ENVIRONMENT}.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.ultimate-web-app-backend-${ENVIRONMENT}.entrypoints=websecure"
+      - "traefik.http.routers.ultimate-web-app-backend-${ENVIRONMENT}.tls.certresolver=cloudflare"
+      - "traefik.http.services.ultimate-web-app-backend-${ENVIRONMENT}.loadbalancer.server.port=5000"
+      - "traefik.http.routers.ultimate-web-app-backend-${ENVIRONMENT}.service=ultimate-web-app-backend-${ENVIRONMENT}"
     env_file:
       - .env
     networks:
@@ -26,7 +26,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: ultimate-web-app-frontend
+    container_name: ultimate-web-app-frontend-${ENVIRONMENT}
     volumes:
       - ./frontend:/app
       - ./openapi:/openapi
@@ -38,11 +38,11 @@ services:
       - backend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ultimate-web-app-frontend.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.ultimate-web-app-frontend.entrypoints=websecure"
-      - "traefik.http.routers.ultimate-web-app-frontend.tls.certresolver=cloudflare"
-      - "traefik.http.services.ultimate-web-app-frontend.loadbalancer.server.port=3000"
-      - "traefik.http.routers.ultimate-web-app-frontend.service=ultimate-web-app-frontend"
+      - "traefik.http.routers.ultimate-web-app-frontend-${ENVIRONMENT}.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.ultimate-web-app-frontend-${ENVIRONMENT}.entrypoints=websecure"
+      - "traefik.http.routers.ultimate-web-app-frontend-${ENVIRONMENT}.tls.certresolver=cloudflare"
+      - "traefik.http.services.ultimate-web-app-frontend-${ENVIRONMENT}.loadbalancer.server.port=3000"
+      - "traefik.http.routers.ultimate-web-app-frontend-${ENVIRONMENT}.service=ultimate-web-app-frontend-${ENVIRONMENT}"
     env_file:
       - .env
     networks:
