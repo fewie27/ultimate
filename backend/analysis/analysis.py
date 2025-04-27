@@ -81,37 +81,15 @@ class RentalAnalysis:
         logger.info("Populating sample agreement collection")
         self._populate_sample_agreement()
     
-    def _populate_minimal_requirements(self):
-        """Populate the minimal requirements collection with essential clauses for rental agreements from file."""
-        file_path = os.path.join(self.sample_data_dir, "Mindestanforderungen.txt")
-        text = extract_text(file_path)
-        requirements = split_text_into_sections(text)
+    def _populate_collection(self, collection, collection_name, sample_files):
+        """
+        Generic method to populate a collection with clauses from sample files.
         
-        if not requirements:
-            logger.warning("No requirements found in file. Using default set.")
-            requirements = [
-                "Der Mietvertrag muss die genaue Anschrift der Wohnung enthalten.",
-                "Die Namen und Anschriften aller Mietparteien müssen angegeben sein.",
-                "Die monatliche Miethöhe muss klar festgelegt sein."
-            ]
-        
-        # Create embeddings for all requirements
-        embeddings = self.model.encode(requirements)
-        
-        # Add each requirement to the collection
-        for req, emb in zip(requirements, embeddings):
-            self.minimal_requirements.add(
-                documents=[req],
-                embeddings=[emb.tolist()],
-                ids=[str(uuid.uuid4())],
-                metadatas=[{"info": "Beispiel"}]
-            )
-            
-        logger.info(f"Added {len(requirements)} requirements to minimal_requirements collection")
-    
-    def _populate_sample_agreement(self):
-        """Populate the sample agreement collection with clauses from multiple sample rental agreement files."""
-        sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx", "Mietvertrag_5.docx", "Mietvertrag_6.docx", "Mietvertrag_7.docx", "Mietrecht_GESETZ.docx"]
+        Args:
+            collection: The ChromaDB collection to populate
+            collection_name: Name of the collection (for logging purposes)
+            sample_files: List of sample files to process
+        """
         all_sample_clauses = []
         
         # Process each sample file
@@ -137,29 +115,45 @@ class RentalAnalysis:
         
         # If no clauses were found in any file, use default set
         if not all_sample_clauses:
-            logger.warning("No clauses found in any sample files. Using default set.")
-            all_sample_clauses = [
-                "§1 Mieträume: Der Vermieter vermietet an den Mieter zu Wohnzwecken die Wohnung.",
-                "§2 Mietdauer: Das Mietverhältnis beginnt am 01.01.2023."
-            ]
+            logger.warning(f"No clauses found in any sample files for {collection_name}. Using default set.")
+            if collection_name == "minimal_requirements":
+                all_sample_clauses = [
+                    "Der Mietvertrag muss die genaue Anschrift der Wohnung enthalten.",
+                    "Die Namen und Anschriften aller Mietparteien müssen angegeben sein.",
+                    "Die monatliche Miethöhe muss klar festgelegt sein."
+                ]
+            else:  # sample_agreement
+                all_sample_clauses = [
+                    "§1 Mieträume: Der Vermieter vermietet an den Mieter zu Wohnzwecken die Wohnung.",
+                    "§2 Mietdauer: Das Mietverhältnis beginnt am 01.01.2023."
+                ]
         
         # Create embeddings for all clauses
         embeddings = self.model.encode(all_sample_clauses)
         
         # Add each clause to the collection
         for clause, emb in zip(all_sample_clauses, embeddings):
-            # Extract clause number if available
-            clause_parts = clause.split(" ", 1)
-            clause_number = clause_parts[0] if len(clause_parts) > 0 else ""
-            
-            self.sample_agreement.add(
+            # Extract clause number if available (for sample agreements)
+            metadata = {"info": "Beispiel"}
+            collection.add(
                 documents=[clause],
                 embeddings=[emb.tolist()],
                 ids=[str(uuid.uuid4())],
-                metadatas=[{"info": "Beispiel"}]
+                metadatas=[metadata]
             )
         
-        logger.info(f"Added {len(all_sample_clauses)} clauses to sample_agreement collection")
+        logger.info(f"Added {len(all_sample_clauses)} clauses to {collection_name} collection")
+    
+    def _populate_minimal_requirements(self):
+        """Populate the minimal requirements collection with essential clauses for rental agreements."""
+        sample_files = ["Mietvertrag_potentially_invalid.docx"]
+        self._populate_collection(self.minimal_requirements, "minimal_requirements", sample_files)
+    
+    def _populate_sample_agreement(self):
+        """Populate the sample agreement collection with clauses from sample rental agreement files."""
+        sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx", 
+                      "Mietvertrag_5.docx", "Mietvertrag_6.docx", "Mietvertrag_7.docx", "Mietrecht_GESETZ.docx"]
+        self._populate_collection(self.sample_agreement, "sample_agreement", sample_files)
     
     def split_text_into_sections(self, text):
         """Split a text into sentences using newline character."""
@@ -200,37 +194,50 @@ class RentalAnalysis:
                         })
                 continue
                 
-            # Create embedding for the sentence
             try:
                 sentence_embedding = self.model.encode([sentence])[0].tolist()
                 
                 # Search for similar clauses in the sample agreement
-                search_results = self.sample_agreement.query(
+                sample_results = self.sample_agreement.query(
                     query_embeddings=[sentence_embedding],
                     n_results=1
                 )
-                closest_document = search_results["documents"][0][0]
-
                 
-                # Check if there's a match in the sample agreement
-                if search_results["distances"][0][0] > 4:  # Higher distance means less similar
-                    # This is an unusual clause that doesn't match any standard clause
-                    
-                    results.append({
-                        "text": sentence,
-                        "category": "unusual",
-                        "description": "",
-                        "distance": search_results["distances"][0][0],
-                        "closest_document": closest_document
-                    })
-                else: 
-                    results.append({
-                        "text": sentence,
-                        "category": "match_found",
-                        "description": "",
-                        "distance": search_results["distances"][0][0],
-                        "closest_document": closest_document
-                    })
+                # Search for similar clauses in the minimal requirements
+                minimal_results = self.minimal_requirements.query(
+                    query_embeddings=[sentence_embedding],
+                    n_results=1
+                )
+                
+                sample_distance = sample_results["distances"][0][0]
+                minimal_distance = minimal_results["distances"][0][0]
+                
+                closest_sample = sample_results["documents"][0][0]
+                closest_minimal = minimal_results["documents"][0][0]
+
+                                # Determine the category based on distances
+                category = []
+
+                if sample_distance > 4:
+                    category.append("unusual")
+                else:
+                    category.append("match_found")
+
+                if minimal_distance <= 2:
+                    category.append("invalid")
+                else:
+                    category.append("valid")
+
+                                
+                results.append({
+                    "text": sentence,
+                    "category": category,
+                    "description": "",
+                    "sample_distance": sample_distance,
+                    "closest_sample": closest_sample,
+                    "minimal_distance": minimal_distance,
+                    "closest_minimal": closest_minimal
+                })
                 
             except Exception as e:
                 logger.error(f"Error analyzing sentence: {e}")
@@ -294,7 +301,6 @@ class RentalAnalysis:
                 temperature=0.0,  # We want deterministic answers
                 max_completion_tokens=1000
             )
-            print(response)
             response_text = response.choices[0].message.content
 
             # Attempt to parse the response as JSON
