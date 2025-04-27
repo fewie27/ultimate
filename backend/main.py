@@ -77,7 +77,7 @@ class SearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     query: str
-    minimal_requirements: List[SearchResult]
+    invalid_clauses: List[SearchResult]
     sample_clauses: List[SearchResult]
 
 class UploadedDocument(BaseModel):

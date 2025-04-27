@@ -29,8 +29,8 @@ class RentalAnalysis:
     """
     A class to analyze rental agreements using vector embeddings.
     Creates and manages two collections:
-    1. minimal_requirements - Contains minimal requirements for a valid rental agreement
-    2. sample_agreement - Contains a sample rental agreement for comparison
+    1. invalid_clauses - Contains invalid clauses for a rental agreement
+    2. sample_agreements - Contains a sample rental agreements for comparison
     """
     
     def __init__(self):
@@ -48,8 +48,8 @@ class RentalAnalysis:
         self.model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
         
         # Create collections
-        self.minimal_requirements = self.client.get_or_create_collection("minimal_requirements")
-        self.sample_agreement = self.client.get_or_create_collection("sample_agreement")
+        self.invalid_clauses = self.client.get_or_create_collection("invalid_clauses")
+        self.sample_agreements = self.client.get_or_create_collection("sample_agreements")
         
         # Populate collections if they're empty
         self._initialize_collections()
@@ -60,26 +60,26 @@ class RentalAnalysis:
         """Initialize collections with data on each startup."""
         # Check if collections exist and delete them if they do
         try:
-            if "minimal_requirements" in [col.name for col in self.client.list_collections()]:
-                self.client.delete_collection("minimal_requirements")
-            if "sample_agreement" in [col.name for col in self.client.list_collections()]:
-                self.client.delete_collection("sample_agreement")
+            if "invalid_clauses" in [col.name for col in self.client.list_collections()]:
+                self.client.delete_collection("invalid_clauses")
+            if "sample_agreements" in [col.name for col in self.client.list_collections()]:
+                self.client.delete_collection("sample_agreements")
             
             # Recreate collections
-            self.minimal_requirements = self.client.create_collection("minimal_requirements")
-            self.sample_agreement = self.client.create_collection("sample_agreement")
+            self.invalid_clauses = self.client.create_collection("invalid_clauses")
+            self.sample_agreements = self.client.create_collection("sample_agreements")
         except Exception as e:
             logger.error(f"Error reinitializing collections: {e}")
             # If there was an error deleting, try to get existing collections
-            self.minimal_requirements = self.client.get_or_create_collection("minimal_requirements")
-            self.sample_agreement = self.client.get_or_create_collection("sample_agreement")
+            self.invalid_clauses = self.client.get_or_create_collection("invalid_clauses")
+            self.sample_agreements = self.client.get_or_create_collection("sample_agreements")
         
         # Populate collections
-        logger.info("Populating minimal requirements collection")
-        self._populate_minimal_requirements()
+        logger.info("Populating invalid clauses collection")
+        self._populate_invalid_clauses()
         
         logger.info("Populating sample agreement collection")
-        self._populate_sample_agreement()
+        self._populate_sample_agreements()
     
     def _populate_collection(self, collection, collection_name, sample_files):
         """
@@ -116,13 +116,13 @@ class RentalAnalysis:
         # If no clauses were found in any file, use default set
         if not all_sample_clauses:
             logger.warning(f"No clauses found in any sample files for {collection_name}. Using default set.")
-            if collection_name == "minimal_requirements":
+            if collection_name == "invalid_clauses":
                 all_sample_clauses = [
                     "Der Mietvertrag muss die genaue Anschrift der Wohnung enthalten.",
                     "Die Namen und Anschriften aller Mietparteien müssen angegeben sein.",
                     "Die monatliche Miethöhe muss klar festgelegt sein."
                 ]
-            else:  # sample_agreement
+            else:  # sample_agreements
                 all_sample_clauses = [
                     "§1 Mieträume: Der Vermieter vermietet an den Mieter zu Wohnzwecken die Wohnung.",
                     "§2 Mietdauer: Das Mietverhältnis beginnt am 01.01.2023."
@@ -144,16 +144,16 @@ class RentalAnalysis:
         
         logger.info(f"Added {len(all_sample_clauses)} clauses to {collection_name} collection")
     
-    def _populate_minimal_requirements(self):
-        """Populate the minimal requirements collection with essential clauses for rental agreements."""
+    def _populate_invalid_clauses(self):
+        """Populate the invalid clauses collection with essential clauses for rental agreements."""
         sample_files = ["Mietvertrag_potentially_invalid.docx"]
-        self._populate_collection(self.minimal_requirements, "minimal_requirements", sample_files)
+        self._populate_collection(self.invalid_clauses, "invalid_clauses", sample_files)
     
-    def _populate_sample_agreement(self):
+    def _populate_sample_agreements(self):
         """Populate the sample agreement collection with clauses from sample rental agreement files."""
         sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx", 
                       "Mietvertrag_5.docx", "Mietvertrag_6.docx", "Mietvertrag_7.docx", "Mietrecht_GESETZ.docx"]
-        self._populate_collection(self.sample_agreement, "sample_agreement", sample_files)
+        self._populate_collection(self.sample_agreements, "sample_agreements", sample_files)
     
     def split_text_into_sections(self, text):
         """Split a text into sentences using newline character."""
@@ -198,22 +198,22 @@ class RentalAnalysis:
                 sentence_embedding = self.model.encode([sentence])[0].tolist()
                 
                 # Search for similar clauses in the sample agreement
-                sample_results = self.sample_agreement.query(
+                sample_results = self.sample_agreements.query(
                     query_embeddings=[sentence_embedding],
                     n_results=1
                 )
                 
-                # Search for similar clauses in the minimal requirements
-                minimal_results = self.minimal_requirements.query(
+                # Search for similar clauses in the invalid clauses
+                invalid_results = self.invalid_clauses.query(
                     query_embeddings=[sentence_embedding],
                     n_results=1
                 )
                 
                 sample_distance = sample_results["distances"][0][0]
-                minimal_distance = minimal_results["distances"][0][0]
+                invalid_distance = invalid_results["distances"][0][0]
                 
                 closest_sample = sample_results["documents"][0][0]
-                closest_minimal = minimal_results["documents"][0][0]
+                closest_invalid = invalid_results["documents"][0][0]
 
                                 # Determine the category based on distances
                 category = []
@@ -223,7 +223,7 @@ class RentalAnalysis:
                 else:
                     category.append("match_found")
 
-                if minimal_distance <= 4:
+                if invalid_distance <= 4:
                     category.append("invalid")
                 else:
                     category.append("valid")
@@ -235,8 +235,8 @@ class RentalAnalysis:
                     "description": "",
                     "sample_distance": sample_distance,
                     "closest_sample": closest_sample,
-                    "minimal_distance": minimal_distance,
-                    "closest_minimal": closest_minimal
+                    "invalid_distance": invalid_distance,
+                    "closest_invalid": closest_invalid
                 })
                 
             except Exception as e:
