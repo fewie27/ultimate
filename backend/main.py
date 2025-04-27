@@ -56,9 +56,10 @@ class AnalysisItem(BaseModel):
     description: str
 
 class EssentialsResponse(BaseModel):
-    analysis: str
-    status: str
-    error: Optional[str] = None
+    vertragsparteien: Optional[str]
+    mietgegenstand: Optional[str]
+    miete: Optional[str]
+    mietbeginn: Optional[str]
 
 class UploadResponse(BaseModel):
     id: str
