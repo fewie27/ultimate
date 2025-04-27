@@ -3,11 +3,11 @@ import axios from "axios";
 import Checklist, { ChecklistItem } from "./Checklist";
 import { mapEasingToNativeEasing } from "framer-motion";
 
-type Category = "fehlend" | "unusual" | "nichtig" | "match_found" | "";
+type Category = "fehlend" | "unusual" | "invalid" | "valid" | "match_found" | "";
 
 interface AnalysisItem {
     text: string;
-    category: Category;
+    category: Category[];
     description: string;
     id: string;
 }
@@ -30,24 +30,24 @@ const mockData: AnalysisResponse = {
     results: [
         {
             text: "Der Mieter darf die Mieträume nur zu Wohnzwecken nutzen.",
-            category: "unusual",
+            category: ["unusual"],
             description: "Einschränkung der Nutzung ungewöhnlich restriktiv.",
             id: "1",
         },
         {
             text: "Der Vertrag verlängert sich automatisch um weitere 12 Monate.",
-            category: "nichtig",
+            category: ["invalid"],
             description: "Automatische Verlängerungsklausel mit ungewöhnlich langer Dauer.",
             id: "2"
         },
         {
             text: "Keine Haustiere erlaubt.",
-            category: "fehlend",
+            category: ["fehlend"],
             description: "Fehlt eine Ausnahmegenehmigung für Kleintiere.",
             id: "3"
         },
     ],
-    essentials: {vertragsparteien: "", mietgegenstand: "", miete: "", mietbeginn: ""}
+    essentials: { vertragsparteien: "", mietgegenstand: "", miete: "", mietbeginn: "" }
 };
 
 interface AnalysisProps {
@@ -74,12 +74,12 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
             setFullText(highlightText(response.data.results));
             setFindings(response.data.results);
             setChecklistItems([
-                {"title":"Vertragsparteien",completed: response.data.essentials.vertragsparteien != null, "description": response.data.essentials.vertragsparteien ?? ""},
-                {"title":"Mietgegenstand",completed: response.data.essentials.mietgegenstand != null, "description": response.data.essentials.mietgegenstand ?? ""},
-                {"title":"Miete",completed: response.data.essentials.miete != null, "description": response.data.essentials.miete ?? ""},
-                {"title":"Mietbeginn",completed: response.data.essentials.mietbeginn != null, "description": response.data.essentials.mietbeginn ?? ""},
+                { "title": "Vertragsparteien / Parties' names", completed: response.data.essentials.vertragsparteien != null, "description": response.data.essentials.vertragsparteien ?? "" },
+                { "title": "Mietgegenstand / Lease start", completed: response.data.essentials.mietgegenstand != null, "description": response.data.essentials.mietgegenstand ?? "" },
+                { "title": "Miete / Rent", completed: response.data.essentials.miete != null, "description": response.data.essentials.miete ?? "" },
+                { "title": "Mietbeginn / Rent start", completed: response.data.essentials.mietbeginn != null, "description": response.data.essentials.mietbeginn ?? "" },
 
-                ]);
+            ]);
         } catch (error) {
             console.error("Error fetching analysis, using mock data:", error);
             setFindings(mockData.results);
@@ -89,7 +89,13 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
     useEffect(() => {
         const analysisId = id;
         fetchAnalysis(analysisId);
-    }, [id, selectedFindingId]);
+    }, [id, selectedFindingId, selectedCategory]);
+
+    const getCategory = (categories: Category[]): Category | null => {
+        if (categories.includes("invalid")) return "invalid";
+        else if (categories.includes("unusual")) return "unusual";
+        else return null;
+    }
 
     const getColorForCategory = (category: Category): string => {
         switch (category) {
@@ -97,8 +103,10 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
                 return "red";
             case "unusual":
                 return "yellow";
-            case "nichtig":
-                return "gray";
+            case "invalid":
+                return "red";
+            case "valid":
+                return "";
             case "match_found":
                 return "";
             default:
@@ -112,8 +120,11 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
         findings.forEach((finding) => {
             const isSelected = finding.id === selectedFindingId;
             const opacity = isSelected ? 1 : 1;
-            const color = getColorForCategory(finding.category);
-            highlightedText += `<span id="finding-${finding.id}" class="${isSelected ? "highlighted" : ""} ${color.length > 0 ? "marked" : ""}">${finding.text.replace("\n", "<br/>")} </span>`;
+            const category = getCategory(finding.category) ?? "";
+            const color = getColorForCategory(category);
+            const mark_yellow = color == "yellow" && (selectedCategory == null || selectedCategory == "all" || selectedCategory == category);
+            const mark_red = color == "red" && (selectedCategory == null || selectedCategory == "all" || selectedCategory == category);
+            highlightedText += `<span id="finding-${finding.id}" class="${isSelected ? "highlighted" : ""} ${mark_yellow ? "marked_yellow" : ""} ${mark_red ? "marked_red" : ""}">${finding.text.replace("\n", "<br/>")} </span>`;
         });
 
         return highlightedText;
@@ -128,8 +139,8 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
     };
 
     const filteredFindings = selectedCategory === "all"
-        ? findings.filter(f => f.category !== "" && f.category !== "match_found")
-        : findings.filter(f => f.category === selectedCategory);
+        ? findings.filter(f => getCategory(f.category) != null)
+        : findings.filter(f => getCategory(f.category) === selectedCategory);
 
     return (
         <div style={styles.outerContainer}>
@@ -151,10 +162,10 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
                     <div style={styles.sidebar}>
                         <div style={styles.buttonGroup}>
-                            <button onClick={() => setSelectedCategory("unusual")} style={styles.button}>
+                            <button onClick={() => {setSelectedCategory("unusual");setSelectedFindingId(null)}} style={styles.button} className="">
                                 🤔<br />Check
                             </button>
-                            <button onClick={() => setSelectedCategory("nichtig")} style={styles.button}>
+                            <button onClick={() => {setSelectedCategory("invalid");setSelectedFindingId(null)}} style={styles.button}>
                                 ❌<br />Invalid
                             </button>
                         </div>
@@ -167,7 +178,7 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
                                     className={finding.id == selectedFindingId ? "highlighted" : ""}
                                     onClick={() => handleFindingClick(finding.id)}
                                 >
-                                    <strong>{finding.category.toUpperCase()}</strong>
+                                    <strong>{getCategory(finding.category)?.toLocaleUpperCase ?? ""}</strong>
                                     <p>{finding.text}</p>
                                 </div>
                             ))}

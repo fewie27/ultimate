@@ -3,13 +3,22 @@
     100% { transform: rotate(360deg); }
   }
 
-  .marked {
+  .marked_yellow {
     color: black;
     background-color: rgba(255, 255, 0, 0.562);
   }
 
-  .highlighted {
-    background-color: rgb(255, 255, 0);
+  .marked_red {
+    color: white;
+    background-color: rgba(255, 0, 0, 0.562);
+  }
+
+  .highlighted.marked_red {
+    background-color: rgb(255, 0, 0);
+  }
+
+  .highlighted.marked_yellow {
+    background-color:  rgb(255, 255, 0);
   }
 
   div.highlighted {

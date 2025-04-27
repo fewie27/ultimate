@@ -1,6 +1,7 @@
 import React, { useState, ChangeEvent } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
+import { Home } from "lucide-react";
 
 interface UploadProps {
     onUploadSuccess: (id: string) => void;
@@ -65,7 +66,7 @@ const Upload: React.FC<UploadProps> = ({ onUploadSuccess }) => {
     return (
         <div style={styles.container}>
             <h1 style={styles.title}>ULTIMATE</h1>
-            <p style={styles.subtitle}>Check your rent contract</p>
+            <p style={styles.subtitle}>Rent smart, not hard</p>
 
             <div style={styles.uploadBox} onClick={triggerFileInput}>
                 <div style={styles.document}>
@@ -78,6 +79,8 @@ const Upload: React.FC<UploadProps> = ({ onUploadSuccess }) => {
                         <div style={styles.line}></div>
                         <div style={styles.line}></div>
                     </div>
+                    <br/>
+                    <Home size={40} className="text-blue-500" />
                 </div>
             </div>
 

@@ -22,7 +22,7 @@ export default function Checklist({ checklistItems, onClose }: ChecklistProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
             >
-                <h1 className="text-2xl font-bold text-center mb-6">Checklist: Essentials</h1>
+                <h1 className="text-2xl font-bold text-center mb-6">Checklist: Essentials / Key Contract Clauses</h1>
                 {checklistItems.map((item, index) => (
                     <motion.div
                         key={index}
