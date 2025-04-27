@@ -189,7 +189,7 @@ class RentalAnalysis:
             if len(sentence) < 40:
                 results.append({
                             "text": sentence,
-                            "category": "",
+                            "category": [],
                             "description": ""
                         })
                 continue

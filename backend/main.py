@@ -52,7 +52,7 @@ class Category(str):
 
 class AnalysisItem(BaseModel):
     text: str
-    category: str
+    category: Optional[List[str]] = []
     description: str
 
 class EssentialsResponse(BaseModel):
