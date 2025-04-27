@@ -286,7 +286,7 @@ class RentalAnalysis:
                         
             # Make API call to OpenAI
             response = openai.chat.completions.create(
-                model="gpt-4",  # Using gpt-4 as gpt-4.1 is not a valid model name
+                model="gpt-4.1",
                 messages=[
                     {"role": "system", "content": "Du bist ein hilfreicher Assistent, der Mietverträge analysiert."},
                     {"role": "user", "content": prompt + text}
