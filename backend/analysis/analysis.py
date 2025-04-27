@@ -30,7 +30,7 @@ class RentalAnalysis:
         self.client = PersistentClient(path=data_dir)
 
         # Initialize sentence embedding model
-        self.model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        self.model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
         
         # Create collections
         self.minimal_requirements = self.client.get_or_create_collection("minimal_requirements")
@@ -96,7 +96,7 @@ class RentalAnalysis:
     
     def _populate_sample_agreement(self):
         """Populate the sample agreement collection with clauses from multiple sample rental agreement files."""
-        sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx", "Mietvertrag_5.docx", "Mietvertrag_6.docx", "Mietvertrag_7.docx"]
+        sample_files = ["Mietvertrag_2.docx", "Mietvertrag_3.docx", "Mietvertrag_4.docx", "Mietvertrag_5.docx", "Mietvertrag_6.docx", "Mietvertrag_7.docx", "Mietrecht_GESETZ.docx"]
         all_sample_clauses = []
         
         # Process each sample file
@@ -176,7 +176,7 @@ class RentalAnalysis:
         # Process each sentence
         for sentence in sentences:
             # Skip very short sentences
-            if len(sentence) < 30:
+            if len(sentence) < 40:
                 results.append({
                             "text": sentence,
                             "category": "",
@@ -197,7 +197,7 @@ class RentalAnalysis:
 
                 
                 # Check if there's a match in the sample agreement
-                if search_results["distances"][0][0] > 0.4:  # Higher distance means less similar
+                if search_results["distances"][0][0] > 4:  # Higher distance means less similar
                     # This is an unusual clause that doesn't match any standard clause
                     
                     results.append({
