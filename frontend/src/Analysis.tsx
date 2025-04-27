@@ -74,10 +74,10 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
             setFullText(highlightText(response.data.results));
             setFindings(response.data.results);
             setChecklistItems([
-                { "title": "Vertragsparteien / Parties' names", completed: response.data.essentials.vertragsparteien != null, "description": response.data.essentials.vertragsparteien ?? "" },
-                { "title": "Mietgegenstand / Lease start", completed: response.data.essentials.mietgegenstand != null, "description": response.data.essentials.mietgegenstand ?? "" },
-                { "title": "Miete / Rent", completed: response.data.essentials.miete != null, "description": response.data.essentials.miete ?? "" },
-                { "title": "Mietbeginn / Rent start", completed: response.data.essentials.mietbeginn != null, "description": response.data.essentials.mietbeginn ?? "" },
+                { "title": "Vertragsparteien / Parties' names", completed: response.data.essentials.vertragsparteien != null, "description": response.data.essentials.vertragsparteien ?? "------" },
+                { "title": "Mietgegenstand / Lease start", completed: response.data.essentials.mietgegenstand != null, "description": response.data.essentials.mietgegenstand ?? "------" },
+                { "title": "Miete / Rent", completed: response.data.essentials.miete != null, "description": response.data.essentials.miete ?? "------" },
+                { "title": "Mietbeginn / Rent start", completed: response.data.essentials.mietbeginn != null, "description": response.data.essentials.mietbeginn ?? "------" },
 
             ]);
         } catch (error) {
@@ -95,6 +95,12 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
         if (categories.includes("invalid")) return "invalid";
         else if (categories.includes("unusual")) return "unusual";
         else return null;
+    }
+
+    const getUserStringFrom = (Category): string => {
+        if (Category == "invalid") return "POTENTIALLY INVALID"
+        else if (Category == "unusual") return "NOT COMMON"
+        return "";
     }
 
     const getColorForCategory = (category: Category): string => {
@@ -162,10 +168,10 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
 
                     <div style={styles.sidebar}>
                         <div style={styles.buttonGroup}>
-                            <button onClick={() => {setSelectedCategory("unusual");setSelectedFindingId(null)}} style={styles.button} className="">
+                            <button onClick={() => {setSelectedCategory("unusual");setSelectedFindingId(null)}} style={styles.button} className={selectedCategory == "unusual" ? "highlighted_c" : ""}>
                                 🤔<br />Check
                             </button>
-                            <button onClick={() => {setSelectedCategory("invalid");setSelectedFindingId(null)}} style={styles.button}>
+                            <button onClick={() => {setSelectedCategory("invalid");setSelectedFindingId(null)}} style={styles.button} className={selectedCategory == "invalid" ? "highlighted_c" : ""}>
                                 ❌<br />Invalid
                             </button>
                         </div>
@@ -178,7 +184,7 @@ const Analysis: React.FC<AnalysisProps> = ({ id, backToUpload }) => {
                                     className={finding.id == selectedFindingId ? "highlighted" : ""}
                                     onClick={() => handleFindingClick(finding.id)}
                                 >
-                                    <strong>{getCategory(finding.category)?.toLocaleUpperCase ?? ""}</strong>
+                                    <strong>{getUserStringFrom(getCategory(finding.category))?.toUpperCase() ?? ""}</strong>
                                     <p>{finding.text}</p>
                                 </div>
                             ))}
@@ -310,6 +316,23 @@ const styles: { [key: string]: React.CSSProperties } = {
         position: "absolute",
         top: "20px",
         left: "20px",
+        width: "50px",
+        height: "50px",
+        borderRadius: "50%",
+        backgroundColor: "#F25D00",
+        color: "white",
+        border: "none",
+        fontSize: "24px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 250,
+    },
+    checklist: {
+        position: "absolute",
+        top: "20px",
+        right: "20px",
         width: "50px",
         height: "50px",
         borderRadius: "50%",

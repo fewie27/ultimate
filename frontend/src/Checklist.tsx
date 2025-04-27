@@ -33,9 +33,9 @@ export default function Checklist({ checklistItems, onClose }: ChecklistProps) {
                     >
                         <div className={`flex items-center justify-center w-10 h-10 rounded-full ${item.completed ? 'bg-green-400' : 'bg-red-400'}`}>
                             {item.completed ? (
-                                <CheckCircle className="text-white" size={24} />
+                                <CheckCircle className="text-white" size={24} style={{ color: "green" }}/>
                             ) : (
-                                <XCircle className="text-white" size={24} />
+                                <XCircle className="text-white" size={24}  style={{ color: "red" }}/>
                             )}
                         </div>
                         <div>
